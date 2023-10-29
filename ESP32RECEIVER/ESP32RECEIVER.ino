@@ -8,25 +8,23 @@
   The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
 */
-
 #include <esp_now.h>
 #include "ESPAsyncWebServer.h"
-#include <Arduino_JSON.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include "SPIFFS.h"
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
-#define BOARD_ID 4
+#define BOARD_ID 1
+#define ledPin 2
 
 Adafruit_MPU6050 mpu;
-const int ledPin = 2;
-String ledState;
+bool ledState = LOW;
 
 // Replace with your network credentials (STATION)
-const char *ssid = "WIFI_SSID";
-const char *password = "WIFI_PASS";
+const char *ssid = "MEPL";
+const char *password = "5843728K";
 
 // Structure example to receive data
 // Must match the sender structure
@@ -54,115 +52,71 @@ struct_message_motor thisMotor;
 struct_message_mpu incomingMPUReading;
 
 unsigned int readingMPUId = 0;
-JSONVar mpu1;
-JSONVar mpu2;
-JSONVar mpu3;
-JSONVar mpu4;
+
+// Tamaño del búfer de caracteres para las cadenas JSON
+const int JSON_BUFFER_SIZE = 256;
+char jsonString[JSON_BUFFER_SIZE];
+char macStr[18];
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
 
-// callback function that will be executed when data is received
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len)
 {
-  // Copies the sender mac address to a string
-  char macStr[18];
-  Serial.print("Packet received from: ");
+  static char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  Serial.print("Packet received from: ");
   Serial.println(macStr);
-  memcpy(&incomingMPUReading, incomingData, sizeof(incomingMPUReading));
 
-  JSONVar mpuJSON;
-  mpuJSON["id"] = incomingMPUReading.id;
-  mpuJSON["acc_x"] = incomingMPUReading.acc_x;
-  mpuJSON["acc_y"] = incomingMPUReading.acc_y;
-  mpuJSON["acc_z"] = incomingMPUReading.acc_z;
-  mpuJSON["gyr_x"] = incomingMPUReading.gyr_x;
-  mpuJSON["gyr_y"] = incomingMPUReading.gyr_y;
-  mpuJSON["gyr_z"] = incomingMPUReading.gyr_z;
-  mpuJSON["readingId"] = String(incomingMPUReading.readingId);
+  static const int JSON_BUFFER_SIZE = 256;
+  static char jsonString[JSON_BUFFER_SIZE];
 
-  String jsonString = JSON.stringify(mpuJSON);
+  snprintf(jsonString, JSON_BUFFER_SIZE,
+           "{\"board_id\": %d, \"acc_x\": %.2f, \"acc_y\": %.2f, \"acc_z\": %.2f, \"gyr_x\": %.2f, \"gyr_y\": %.2f, \"gyr_z\": %.2f, \"readingId\": %.2f}",
+           incomingMPUReading.id, incomingMPUReading.acc_x, incomingMPUReading.acc_y, incomingMPUReading.acc_z,
+           incomingMPUReading.gyr_x, incomingMPUReading.gyr_y, incomingMPUReading.gyr_z, incomingMPUReading.readingId);
 
-  events.send(jsonString.c_str(), "new_readings", millis());
-
-  Serial.printf("Board ID %u: %u bytes\n", incomingMPUReading.id, len);
-  Serial.printf("acc_x value: %4.2f \n", incomingMPUReading.acc_x);
-  Serial.printf("acc_y value: %4.2f \n", incomingMPUReading.acc_y);
-  Serial.printf("acc_z value: %4.2f \n", incomingMPUReading.acc_z);
-  Serial.printf("gyr_x value: %4.2f \n", incomingMPUReading.gyr_x);
-  Serial.printf("gyr_y value: %4.2f \n", incomingMPUReading.gyr_y);
-  Serial.printf("gyr_z value: %4.2f \n", incomingMPUReading.gyr_z);
-  Serial.printf("readingID value: %d \n", incomingMPUReading.readingId);
-  Serial.println();
+  events.send(jsonString, "mpu_readings", millis());
 }
 
-float readMPUData()
+void readMPUData()
 {
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  // Read temperature as Celsius (the default)
+
+  static const int JSON_BUFFER_SIZE = 256;
+  static char jsonString[JSON_BUFFER_SIZE];
 
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
-  JSONVar mpuJSON;
-  mpuJSON["id"] = BOARD_ID;
-  mpuJSON["acc_x"] = a.acceleration.x;
-  mpuJSON["acc_y"] = a.acceleration.y;
-  mpuJSON["acc_z"] = a.acceleration.z;
-  mpuJSON["gyr_x"] = g.gyro.x;
-  mpuJSON["gyr_y"] = g.gyro.y;
-  mpuJSON["gyr_z"] = g.gyro.z;
   readingMPUId++;
-  mpuJSON["readingId"] = readingMPUId;
+  snprintf(jsonString, JSON_BUFFER_SIZE,
+           "{\"board_id\": %d, \"acc_x\": %.2f, \"acc_y\": %.2f, \"acc_z\": %.2f, \"gyr_x\": %.2f, \"gyr_y\": %.2f, \"gyr_z\": %.2f, \"readingId\": %d}",
+           BOARD_ID, a.acceleration.x, a.acceleration.y, a.acceleration.z,
+           g.gyro.x, g.gyro.y, g.gyro.z, readingMPUId);
 
-  String jsonString = JSON.stringify(mpuJSON);
-
-  events.send(jsonString.c_str(), "new_readings", millis());
-}
-
-String processor(const String &var)
-{
-  Serial.println(var);
-  if (var == "STATE")
-  {
-    if (digitalRead(ledPin))
-    {
-      ledState = "ON";
-    }
-    else
-    {
-      ledState = "OFF";
-    }
-    Serial.print(ledState);
-    return ledState;
-  }
-  return String();
+  events.send(jsonString, "mpu_readings", millis());
 }
 
 void setup(void)
 {
-  // Initialize Serial Monitor
   Serial.begin(115200);
+  pinMode(ledPin, OUTPUT);
+  while (!Serial)
+    delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
-  /* Initialize the sensor */
+  Serial.println("Adafruit MPU6050 test!");
+
+  // Try to initialize!
   if (!mpu.begin())
   {
     Serial.println("Failed to find MPU6050 chip");
     while (1)
-      ;
-    delay(10);
+    {
+      delay(10);
+    }
   }
   Serial.println("MPU6050 Found!");
-
-  // mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-  // mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-  // mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
-  // Serial.println("");
-
-  // Init the motor settings
-  //
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true))
@@ -185,6 +139,7 @@ void setup(void)
   Serial.println(WiFi.localIP());
   Serial.print("Wi-Fi Channel: ");
   Serial.println(WiFi.channel());
+  Serial.println(ESP.getFreeHeap());
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK)
@@ -193,29 +148,27 @@ void setup(void)
     return;
   }
 
-  // Once ESPNow is successfully Init, we will register for recv CB to
-  // get recv packer info
   esp_now_register_recv_cb(OnDataRecv);
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SPIFFS, "/index.html", String(), false, processor); });
+            {
+              Serial.println("/");
+              request->send(SPIFFS, "/index.html", "text/html"); });
+
+  // Route for root / web page
+  server.on("/script.js", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/script.js", "text/javascript"); });
 
   // Route to load style.css file
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SPIFFS, "/style.css", "text/css"); });
+  server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(SPIFFS, "/styles.css", "text/css"); });
 
-  // Route to set GPIO to HIGH
-  server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-    digitalWrite(ledPin, HIGH);    
-    request->send(SPIFFS, "/index.html", String(), false, processor); });
-
-  // Route to set GPIO to LOW
-  server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-    digitalWrite(ledPin, LOW);    
-    request->send(SPIFFS, "/index.html", String(), false, processor); });
+    ledState = !ledState;
+    digitalWrite(ledPin, ledState);
+    request->send(SPIFFS, "/index.html", String(ledState), true); });
 
   events.onConnect([](AsyncEventSourceClient *client)
                    {
@@ -239,6 +192,7 @@ void loop()
     events.send("ping", NULL, millis());
     lastEventTime = millis();
   }
-  // Set values for this MPU
+
   readMPUData();
+  delay(100);
 }
