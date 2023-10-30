@@ -17,10 +17,11 @@
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
 #define BOARD_ID 1
-#define ledPin 2
+#define motorPin 2
 
 Adafruit_MPU6050 mpu;
-bool ledState = LOW;
+bool motorState = LOW;
+float vibrationDuration = 2.0;
 
 uint8_t broadcastAddress[6] = {};
 
@@ -73,8 +74,8 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len)
   char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  Serial.print("Packet received from: ");
-  Serial.println(macStr);
+  // Serial.print("Packet received from: ");
+  // Serial.println(macStr);
 
   memcpy(&incomingMPUReading, incomingData, sizeof(incomingMPUReading));
 
@@ -116,7 +117,7 @@ void readMPUData()
   events.send(jsonString, "mpu_readings", millis());
 }
 
-void sendLed(int id)
+void sendMotor(int id)
 {
   incomingMotor.id = id;
   incomingMotor.state = true;
@@ -164,7 +165,7 @@ void add_peer(const uint8_t *mac_addr)
 void setup(void)
 {
   Serial.begin(115200);
-  pinMode(ledPin, OUTPUT);
+  pinMode(motorPin, OUTPUT);
   while (!Serial)
     delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
@@ -233,25 +234,28 @@ void setup(void)
   server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/styles.css", "text/css"); });
 
-  server.on("/led1", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/motor1", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-    ledState = !ledState;
-    digitalWrite(ledPin, ledState);
-    request->send(SPIFFS, "/index.html", String(ledState), true); });
+    motorState = !motorState;
+    digitalWrite(motorPin, motorState);
+    delay(vibrationDuration);
+    motorState = !motorState;
+    digitalWrite(motorPin, motorState);
+    request->send(SPIFFS, "/index.html", String(motorState), true); });
 
-  server.on("/led2", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/motor2", HTTP_GET, [](AsyncWebServerRequest *request)
             { 
-              sendLed(2);
+              sendMotor(2);
               request->send(SPIFFS, "/index.html", String(), true); });
 
-  server.on("/led3", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/motor3", HTTP_GET, [](AsyncWebServerRequest *request)
             { 
-              sendLed(3);
+              sendMotor(3);
               request->send(SPIFFS, "/index.html", String(), true); });
 
-  server.on("/led4", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/motor4", HTTP_GET, [](AsyncWebServerRequest *request)
             { 
-              sendLed(4);
+              sendMotor(4);
               request->send(SPIFFS, "/index.html", String(), true); });
 
   events.onConnect([](AsyncEventSourceClient *client)
@@ -278,5 +282,5 @@ void loop()
   }
 
   readMPUData();
-  delay(100);
+  delay(500);
 }

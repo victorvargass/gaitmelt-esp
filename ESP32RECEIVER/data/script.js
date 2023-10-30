@@ -19,12 +19,13 @@ var buttonStates = {
     4: false,
 };
 
-function toggleButton(buttonId) {
-    console.log(buttonId)
+function toggleButton(buttonId, buttonNumber) {
+    console.log(buttonId);
     var button = document.getElementById(buttonId);
-    
+
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/toggle", true);
+    xhr.open("GET", "/led" + String(buttonNumber), true);
+    //xhr.open("GET", "/motor" + String(buttonNumber), true);
     xhr.send();
     if (button) {
         if (button.classList.contains("on")) {
@@ -43,9 +44,9 @@ function toggleButton(buttonId) {
 
 for (var i = 1; i <= 4; i++) {
     (function (i) {
-        console.log(i, "button" + i)
+        console.log(i, "button" + i);
         document.getElementById("button" + i).addEventListener("click", function () {
-            toggleButton("button" + i);
+            toggleButton("button" + i, i);
         });
     })(i);
 }
@@ -62,7 +63,7 @@ function createChart(chartId, data, label, title, yAxisLabel, dataSetColors) {
                     data: dataSet,
                     borderColor: dataSetColors[index],
                     backgroundColor: 'transparent',
-                    pointRadius: 3,
+                    pointRadius: 1,
                     pointBackgroundColor: dataSetColors[index],
                     fill: false
                 };
@@ -102,6 +103,9 @@ var gyr_chart = {};
 var accSetColors = ['red', 'blue', 'green'];
 var gyrSetColors = ['purple', 'orange', 'pink'];
 
+var script_time = 0;
+
+
 for (var i = 1; i <= 4; i++) {
     acc_chart[i] = createChart('acc_chart_' + i, acc_data[i], ['acc_x', 'acc_y', 'acc_z'], "Acelerómetro", 'Acceleración (m/s^2)', accSetColors);
     gyr_chart[i] = createChart('gyr_chart_' + i, gyr_data[i], ['gyr_x', 'gyr_y', 'gyr_z'], "Giroscopio", 'Radianes', gyrSetColors);
@@ -140,7 +144,7 @@ if (!!window.EventSource) {
 
     source.addEventListener('mpu_readings', function (e) {
         var obj = JSON.parse(e.data);
-        var time = obj.readingId;
+        var time = script_time;
         var board_id = obj.board_id;
         var accData = [obj.acc_x, obj.acc_y, obj.acc_z];
         var gyrData = [obj.gyr_x, obj.gyr_y, obj.gyr_z];

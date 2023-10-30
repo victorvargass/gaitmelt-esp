@@ -6,14 +6,15 @@
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
 #define BOARD_ID 3
-#define ledPin 2
+#define motorPin 2
 
 // Adafruit_MPU6050 mpu;
-bool ledState = LOW;
+bool motorState = LOW;
+float vibrationDuration = 2.0;
 
 // MAC Address of the receiver
 // uint8_t broadcastAddress[] = {0xB0, 0xB2, 0x1C, 0x0A, 0xD0, 0x58};
-uint8_t broadcastAddress[] = {0xA0, 0xB7, 0x65, 0xDC, 0xCF, 0x5C}; //THIS
+uint8_t broadcastAddress[] = {0xA0, 0xB7, 0x65, 0xDC, 0xCF, 0x5C}; // THIS
 
 // Structure example to send data
 // Must match the receiver structure
@@ -42,7 +43,7 @@ struct_message_motor incomingMotor;
 struct_message_motor thisMotor;
 
 unsigned long previousMillis = 0; // Stores last time temperature was published
-const long interval = 100;        // Interval at which to publish sensor readings
+const long interval = 1000;       // Interval at which to publish sensor readings
 
 unsigned int readingMPUId = 0;
 
@@ -96,7 +97,6 @@ void readMPUData()
 }
 */
 
-
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
@@ -107,17 +107,20 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
-  ledState = !ledState;
-  digitalWrite(ledPin, ledState);
+  motorState = !motorState;
+  digitalWrite(motorPin, motorState);
+  delay(vibrationDuration);
+  motorState = !motorState;
+  digitalWrite(motorPin, motorState);
   Serial.print("On data receive");
-  //Serial.println(incomingData);
+  // Serial.println(incomingData);
 }
 
 void setup()
 {
   // Init Serial Monitor
   Serial.begin(115200);
-  pinMode(ledPin, OUTPUT);
+  pinMode(motorPin, OUTPUT);
 
   /* Initialize the sensor */
   /*
