@@ -13,7 +13,7 @@ bool ledState = LOW;
 
 // MAC Address of the receiver
 // uint8_t broadcastAddress[] = {0xB0, 0xB2, 0x1C, 0x0A, 0xD0, 0x58};
-uint8_t broadcastAddress[] = {0xA0, 0xB7, 0x65, 0xDC, 0xCF, 0x5C};
+uint8_t broadcastAddress[] = {0xA0, 0xB7, 0x65, 0xDC, 0xCF, 0x5C}; //THIS
 
 // Structure example to send data
 // Must match the receiver structure
@@ -96,12 +96,6 @@ void readMPUData()
 }
 */
 
-void setIncomingMotorData()
-{
-  thisMotor.id = BOARD_ID;
-  thisMotor.speed = incomingMotor.speed;
-  thisMotor.state = incomingMotor.state;
-}
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
@@ -113,14 +107,17 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
-  incomingMotor = *(struct_message_motor *)incomingData;
-  setIncomingMotorData();
+  ledState = !ledState;
+  digitalWrite(ledPin, ledState);
+  Serial.print("On data receive");
+  //Serial.println(incomingData);
 }
 
 void setup()
 {
   // Init Serial Monitor
   Serial.begin(115200);
+  pinMode(ledPin, OUTPUT);
 
   /* Initialize the sensor */
   /*

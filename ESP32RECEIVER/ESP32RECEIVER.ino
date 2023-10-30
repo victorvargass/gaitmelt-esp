@@ -22,6 +22,12 @@
 Adafruit_MPU6050 mpu;
 bool ledState = LOW;
 
+uint8_t broadcastAddress[6] = {};
+
+uint8_t broadcastAddress_2[] = {0xA0, 0xB7, 0x65, 0xDD, 0x9E, 0xA0}; // SENDER mpu malo
+uint8_t broadcastAddress_3[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C}; // SENDER sin mpu
+// uint8_t broadcastAddress_4[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C}; // SENDER X
+
 // Replace with your network credentials (STATION)
 const char *ssid = "MEPL";
 const char *password = "5843728K";
@@ -48,6 +54,7 @@ typedef struct struct_message_motor
 } struct_message_motor;
 
 struct_message_motor thisMotor;
+struct_message_motor incomingMotor;
 
 struct_message_mpu incomingMPUReading;
 
@@ -63,14 +70,16 @@ AsyncEventSource events("/events");
 
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len)
 {
-  static char macStr[18];
+  char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   Serial.print("Packet received from: ");
   Serial.println(macStr);
 
-  static const int JSON_BUFFER_SIZE = 256;
-  static char jsonString[JSON_BUFFER_SIZE];
+  memcpy(&incomingMPUReading, incomingData, sizeof(incomingMPUReading));
+
+  const int JSON_BUFFER_SIZE = 256;
+  char *jsonString = (char *)malloc(JSON_BUFFER_SIZE * sizeof(char));
 
   snprintf(jsonString, JSON_BUFFER_SIZE,
            "{\"board_id\": %d, \"acc_x\": %.2f, \"acc_y\": %.2f, \"acc_z\": %.2f, \"gyr_x\": %.2f, \"gyr_y\": %.2f, \"gyr_z\": %.2f, \"readingId\": %.2f}",
@@ -78,6 +87,15 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len)
            incomingMPUReading.gyr_x, incomingMPUReading.gyr_y, incomingMPUReading.gyr_z, incomingMPUReading.readingId);
 
   events.send(jsonString, "mpu_readings", millis());
+
+  free(jsonString);
+}
+
+// callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
 void readMPUData()
@@ -96,6 +114,51 @@ void readMPUData()
            g.gyro.x, g.gyro.y, g.gyro.z, readingMPUId);
 
   events.send(jsonString, "mpu_readings", millis());
+}
+
+void sendLed(int id)
+{
+  incomingMotor.id = id;
+  incomingMotor.state = true;
+  incomingMotor.speed = 10.0;
+  if (id == 2)
+  {
+    memcpy(broadcastAddress, broadcastAddress_2, sizeof(broadcastAddress));
+  }
+  if (id == 3)
+  {
+    memcpy(broadcastAddress, broadcastAddress_3, sizeof(broadcastAddress));
+  }
+  /*
+  if (id == 4){
+    broadcastAddress = broadcastAddress4;
+  }
+  */
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&incomingMotor, sizeof(incomingMotor));
+  if (result == ESP_OK)
+  {
+    Serial.println("Sent with success");
+  }
+  else
+  {
+    Serial.println("Error sending the data");
+  }
+}
+
+void add_peer(const uint8_t *mac_addr)
+{
+  // Register peer
+  esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo));
+  memcpy(peerInfo.peer_addr, mac_addr, 6);
+  peerInfo.encrypt = false;
+
+  // Add peer
+  if (esp_now_add_peer(&peerInfo) != ESP_OK)
+  {
+    Serial.println("Failed to add peer");
+    return;
+  }
 }
 
 void setup(void)
@@ -148,6 +211,12 @@ void setup(void)
     return;
   }
 
+  esp_now_register_send_cb(OnDataSent);
+
+  add_peer(broadcastAddress_2);
+  add_peer(broadcastAddress_3);
+  // add_peer(broadcastAddress_4);
+
   esp_now_register_recv_cb(OnDataRecv);
 
   // Route for root / web page
@@ -164,11 +233,26 @@ void setup(void)
   server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/styles.css", "text/css"); });
 
-  server.on("/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/led1", HTTP_GET, [](AsyncWebServerRequest *request)
             {
     ledState = !ledState;
     digitalWrite(ledPin, ledState);
     request->send(SPIFFS, "/index.html", String(ledState), true); });
+
+  server.on("/led2", HTTP_GET, [](AsyncWebServerRequest *request)
+            { 
+              sendLed(2);
+              request->send(SPIFFS, "/index.html", String(), true); });
+
+  server.on("/led3", HTTP_GET, [](AsyncWebServerRequest *request)
+            { 
+              sendLed(3);
+              request->send(SPIFFS, "/index.html", String(), true); });
+
+  server.on("/led4", HTTP_GET, [](AsyncWebServerRequest *request)
+            { 
+              sendLed(4);
+              request->send(SPIFFS, "/index.html", String(), true); });
 
   events.onConnect([](AsyncEventSourceClient *client)
                    {
