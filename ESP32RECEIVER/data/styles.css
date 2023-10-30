@@ -37,6 +37,7 @@ h2 {
         width: 100%;
         text-align:center;
         position: relative;
+        padding-bottom: 25%;
     }
 }
 
@@ -89,6 +90,7 @@ h2 {
         height: 300px; /* Ajusta la altura según tus preferencias */
         width: 100%;
         text-align:center;
+        padding-bottom: 40%;
     }
 }
 
