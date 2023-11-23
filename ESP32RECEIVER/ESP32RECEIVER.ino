@@ -27,9 +27,11 @@ float vibrationDuration = 2000;
 
 uint8_t broadcastAddress[6] = {};
 
-uint8_t broadcastAddress_2[] = {0xA0, 0xB7, 0x65, 0xDD, 0x9E, 0xA0}; // SENDER mpu malo
-uint8_t broadcastAddress_3[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C}; // SENDER sin mpu
-// uint8_t broadcastAddress_4[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C}; // SENDER X
+/*
+uint8_t broadcastAddress_2[] = {0xA0, 0xB7, 0x65, 0xDD, 0x9E, 0xA0};
+uint8_t broadcastAddress_3[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C};
+uint8_t broadcastAddress_4[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C};
+*/
 
 // Replace with your network credentials (STATION)
 const char *ssid = "MEPL";
@@ -127,6 +129,7 @@ void sendMotor(int id)
   incomingMotor.id = id;
   incomingMotor.state = true;
   incomingMotor.speed = 1023;
+  /*
   if (id == 2)
   {
     memcpy(broadcastAddress, broadcastAddress_2, sizeof(broadcastAddress));
@@ -139,6 +142,7 @@ void sendMotor(int id)
   {
     memcpy(broadcastAddress, broadcastAddress_4, sizeof(broadcastAddress));
   }
+  */
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&incomingMotor, sizeof(incomingMotor));
   if (result == ESP_OK)
   {
