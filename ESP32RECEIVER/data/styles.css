@@ -108,13 +108,24 @@ h2 {
 }
 
 /* Estilo para los botones cuando están encendidos (verde) */
-.toggle-button.on {
+.toggle-motor-button.on {
     background-color: green;
     color: white;
 }
 
 /* Estilo para los botones cuando están apagados (color a tu criterio) */
-.toggle-button.off {
-    background-color: #ff5733; /* Cambia a un color de tu elección */
+.toggle-motor-button.off {
+    background-color: rgb(111, 111, 111);
+    color: white;
+}
+
+/* Estilo para los botones cuando están apagados (color a tu criterio) */
+.toggle-trial-button.on {
+    background-color: #FF5E5B;
+    color: white;
+}
+/* Estilo para los botones cuando están apagados (color a tu criterio) */
+.toggle-trial-button.off {
+    background-color: green;
     color: white;
 }

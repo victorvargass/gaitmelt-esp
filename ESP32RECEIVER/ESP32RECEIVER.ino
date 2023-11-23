@@ -17,11 +17,13 @@
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
 #define BOARD_ID 1
-#define motorPin 2
+#define MOTORINA 25
+#define MOTORINB 26
 
 Adafruit_MPU6050 mpu;
 bool motorState = LOW;
-float vibrationDuration = 2.0;
+byte motorVelocity = 1023;
+float vibrationDuration = 2000;
 
 uint8_t broadcastAddress[6] = {};
 
@@ -32,6 +34,9 @@ uint8_t broadcastAddress_3[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C}; // SENDER s
 // Replace with your network credentials (STATION)
 const char *ssid = "MEPL";
 const char *password = "5843728K";
+
+//const char *ssid = "WIFI_14000";
+//const char *password = "wifi14000";
 
 // Structure example to receive data
 // Must match the sender structure
@@ -121,7 +126,7 @@ void sendMotor(int id)
 {
   incomingMotor.id = id;
   incomingMotor.state = true;
-  incomingMotor.speed = 10.0;
+  incomingMotor.speed = 1023;
   if (id == 2)
   {
     memcpy(broadcastAddress, broadcastAddress_2, sizeof(broadcastAddress));
@@ -130,11 +135,10 @@ void sendMotor(int id)
   {
     memcpy(broadcastAddress, broadcastAddress_3, sizeof(broadcastAddress));
   }
-  /*
-  if (id == 4){
-    broadcastAddress = broadcastAddress4;
+  if (id == 4)
+  {
+    memcpy(broadcastAddress, broadcastAddress_4, sizeof(broadcastAddress));
   }
-  */
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&incomingMotor, sizeof(incomingMotor));
   if (result == ESP_OK)
   {
@@ -165,7 +169,8 @@ void add_peer(const uint8_t *mac_addr)
 void setup(void)
 {
   Serial.begin(115200);
-  pinMode(motorPin, OUTPUT);
+  pinMode(MOTORINA, OUTPUT);
+  pinMode(MOTORINB, OUTPUT);
   while (!Serial)
     delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
@@ -204,7 +209,6 @@ void setup(void)
   Serial.print("Wi-Fi Channel: ");
   Serial.println(WiFi.channel());
   Serial.println(ESP.getFreeHeap());
-
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK)
   {
@@ -214,11 +218,11 @@ void setup(void)
 
   esp_now_register_send_cb(OnDataSent);
 
-  add_peer(broadcastAddress_2);
-  add_peer(broadcastAddress_3);
+  // add_peer(broadcastAddress_2);
+  // add_peer(broadcastAddress_3);
   // add_peer(broadcastAddress_4);
 
-  esp_now_register_recv_cb(OnDataRecv);
+  // esp_now_register_recv_cb(OnDataRecv);
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -237,10 +241,12 @@ void setup(void)
   server.on("/motor1", HTTP_GET, [](AsyncWebServerRequest *request)
             {
     motorState = !motorState;
-    digitalWrite(motorPin, motorState);
+    analogWrite(MOTORINA, motorVelocity);
+    analogWrite(MOTORINB, 0);
     delay(vibrationDuration);
     motorState = !motorState;
-    digitalWrite(motorPin, motorState);
+    analogWrite(MOTORINA, 0);
+    analogWrite(MOTORINB, 0);
     request->send(SPIFFS, "/index.html", String(motorState), true); });
 
   server.on("/motor2", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -282,5 +288,5 @@ void loop()
   }
 
   readMPUData();
-  delay(500);
+  delay(100);
 }
