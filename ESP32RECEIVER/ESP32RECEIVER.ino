@@ -17,21 +17,19 @@
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
 #define BOARD_ID 1
-#define MOTORINA 25
-#define MOTORINB 26
+#define MOTORINA 26
+#define MOTORINB 25
 
 Adafruit_MPU6050 mpu;
 bool motorState = LOW;
 byte motorVelocity = 1023;
-float vibrationDuration = 2000;
+float vibrationDuration = 1000;
 
 uint8_t broadcastAddress[6] = {};
 
-/*
-uint8_t broadcastAddress_2[] = {0xA0, 0xB7, 0x65, 0xDD, 0x9E, 0xA0};
-uint8_t broadcastAddress_3[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C};
-uint8_t broadcastAddress_4[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6C, 0x1C};
-*/
+uint8_t broadcastAddress_2[] = {0xA0, 0xB7, 0x65, 0x4F, 0x18, 0xA0};
+uint8_t broadcastAddress_3[] = {0xA0, 0xB7, 0x65, 0xDC, 0xAD, 0xAC};
+uint8_t broadcastAddress_4[] = {0xE0, 0x5A, 0x1B, 0x75, 0x6A, 0x88};
 
 // Replace with your network credentials (STATION)
 const char *ssid = "MEPL";
@@ -59,6 +57,7 @@ typedef struct struct_message_motor
   int id;
   bool state;
   float speed;
+  float duration;
 } struct_message_motor;
 
 struct_message_motor thisMotor;
@@ -129,7 +128,8 @@ void sendMotor(int id)
   incomingMotor.id = id;
   incomingMotor.state = true;
   incomingMotor.speed = 1023;
-  /*
+  incomingMotor.duration = 1000;
+  
   if (id == 2)
   {
     memcpy(broadcastAddress, broadcastAddress_2, sizeof(broadcastAddress));
@@ -142,7 +142,7 @@ void sendMotor(int id)
   {
     memcpy(broadcastAddress, broadcastAddress_4, sizeof(broadcastAddress));
   }
-  */
+  
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&incomingMotor, sizeof(incomingMotor));
   if (result == ESP_OK)
   {
@@ -222,11 +222,11 @@ void setup(void)
 
   esp_now_register_send_cb(OnDataSent);
 
-  // add_peer(broadcastAddress_2);
-  // add_peer(broadcastAddress_3);
-  // add_peer(broadcastAddress_4);
+  add_peer(broadcastAddress_2);
+  add_peer(broadcastAddress_3);
+  add_peer(broadcastAddress_4);
 
-  // esp_now_register_recv_cb(OnDataRecv);
+  esp_now_register_recv_cb(OnDataRecv);
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)

@@ -6,15 +6,17 @@
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
 #define BOARD_ID 3
-#define motorPin 2
+#define MOTORINA 26
+#define MOTORINB 25
 
 // Adafruit_MPU6050 mpu;
+Adafruit_MPU6050 mpu;
 bool motorState = LOW;
-float vibrationDuration = 2.0;
+byte motorVelocity = 1023;
+float vibrationDuration = 1000;
 
 // MAC Address of the receiver
-// uint8_t broadcastAddress[] = {0xB0, 0xB2, 0x1C, 0x0A, 0xD0, 0x58};
-uint8_t broadcastAddress[] = {0xA0, 0xB7, 0x65, 0xDC, 0xCF, 0x5C}; // THIS
+uint8_t broadcastAddress[] = {0xE0, 0x5A, 0x1B, 0x75, 0xAF, 0x94}; // RECEIVER 1
 
 // Structure example to send data
 // Must match the receiver structure
@@ -35,20 +37,17 @@ typedef struct struct_message_motor
   int id;
   bool state;
   float speed;
+  float duration;
 } struct_message_motor;
 
 // Create a struct_message called thisMPUReadings and thisMotorReadings
 struct_message_mpu thisMPUReadings;
 struct_message_motor incomingMotor;
-struct_message_motor thisMotor;
 
 unsigned long previousMillis = 0; // Stores last time temperature was published
 const long interval = 1000;       // Interval at which to publish sensor readings
 
 unsigned int readingMPUId = 0;
-
-// Define variables to store incoming readings
-float incomingMotorSpeed;
 
 // Insert your SSID
 constexpr char WIFI_SSID[] = "MEPL";
@@ -70,19 +69,6 @@ int32_t getWiFiChannel(const char *ssid)
 
 void readMPUData()
 {
-  thisMPUReadings.id = BOARD_ID;
-  thisMPUReadings.acc_x = 10.0;
-  thisMPUReadings.acc_y = 10.0;
-  thisMPUReadings.acc_z = 10.0;
-  thisMPUReadings.gyr_x = 0.1;
-  thisMPUReadings.gyr_y = 0.1;
-  thisMPUReadings.gyr_z = 0.1;
-  thisMPUReadings.readingId = readingMPUId++;
-}
-
-/*
-void readMPUData()
-{
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
@@ -95,7 +81,6 @@ void readMPUData()
   thisMPUReadings.gyr_z = g.gyro.z;
   thisMPUReadings.readingId = readingMPUId++;
 }
-*/
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
@@ -107,23 +92,27 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
-  motorState = !motorState;
-  digitalWrite(motorPin, motorState);
+  memcpy(&incomingMotor, incomingData, sizeof(incomingMotor));
+
+  motorState = incomingMotor.state;
+  motorVelocity = incomingMotor.speed;
+  vibrationDuration = incomingMotor.duration;
+  analogWrite(MOTORINA, motorVelocity);
+  analogWrite(MOTORINB, 0);
   delay(vibrationDuration);
   motorState = !motorState;
-  digitalWrite(motorPin, motorState);
-  Serial.print("On data receive");
-  // Serial.println(incomingData);
+  analogWrite(MOTORINA, 0);
+  analogWrite(MOTORINB, 0);
 }
 
 void setup()
 {
   // Init Serial Monitor
   Serial.begin(115200);
-  pinMode(motorPin, OUTPUT);
+  pinMode(MOTORINA, OUTPUT);
+  pinMode(MOTORINB, OUTPUT);
 
   /* Initialize the sensor */
-  /*
   if (!mpu.begin())
   {
     Serial.println("Failed to find MPU6050 chip");
@@ -132,13 +121,11 @@ void setup()
     delay(10);
   }
   Serial.println("MPU6050 Found!");
-  */
-
-  // Init the motor settings
-  //
 
   // Set device as a Wi-Fi Station and set channel
   WiFi.mode(WIFI_STA);
+  Serial.print("WiFi macAddress: ");
+  Serial.println(WiFi.macAddress());
 
   int32_t channel = getWiFiChannel(WIFI_SSID);
   Serial.print(channel);
@@ -179,12 +166,12 @@ void setup()
 
 void loop()
 {
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval)
+  static unsigned long lastEventTime = millis();
+  static const unsigned long EVENT_INTERVAL_MS = 100;
+  if ((millis() - lastEventTime) > EVENT_INTERVAL_MS)
   {
-    previousMillis = currentMillis;
+    lastEventTime = millis();
     readMPUData();
-
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&thisMPUReadings, sizeof(thisMPUReadings));
     if (result == ESP_OK)
     {
