@@ -141,7 +141,7 @@ function downloadCSV() {
 }
 
 
-function createChart(chartId, data, label, title, yAxisLabel, dataSetColors) {
+function createChart(chartId, data, label, title, yAxisLabel, dataSetColors, minValue, maxValue) {
     var ctx = document.getElementById(chartId).getContext('2d');
     return new Chart(ctx, {
         type: 'line',
@@ -184,7 +184,9 @@ function createChart(chartId, data, label, title, yAxisLabel, dataSetColors) {
                     title: {
                         display: true,
                         text: yAxisLabel
-                    }
+                    },
+                    suggestedMin: minValue,
+                    suggestedMax: maxValue
                 }
             }
         }
@@ -200,8 +202,8 @@ var script_time = 0;
 
 
 for (var i = 1; i <= 4; i++) {
-    acc_chart[i] = createChart('acc_chart_' + i, acc_data[i], ['x', 'y', 'z'], "Acelerómetro", 'Acceleración (m/s^2)', accSetColors);
-    gyr_chart[i] = createChart('gyr_chart_' + i, gyr_data[i], ['x', 'y', 'z'], "Giroscopio", 'Radianes', gyrSetColors);
+    acc_chart[i] = createChart('acc_chart_' + i, acc_data[i], ['x', 'y', 'z'], "Acelerómetro", 'Acceleración (m/s^2)', accSetColors, -20, 20);
+    gyr_chart[i] = createChart('gyr_chart_' + i, gyr_data[i], ['x', 'y', 'z'], "Giroscopio", 'Radianes', gyrSetColors, -6, 6);
 }
 
 function addData(chart, time, newData) {
