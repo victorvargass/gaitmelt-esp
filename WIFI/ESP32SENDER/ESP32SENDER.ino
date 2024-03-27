@@ -5,7 +5,7 @@
 #include <Adafruit_MPU6050.h>
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
-#define BOARD_ID 3
+#define BOARD_ID 2
 #define MOTORINA 26
 #define MOTORINB 25
 
