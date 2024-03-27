@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GaitMelt</title>
+    <!-- Importa el archivo CSS de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Incluye la biblioteca de Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="topnav">
+        <h1>GaitMelt Dasboard</h1>
+    </div>
+    <div class="center">
+        <button id="trialButton" class="toggle-button toggle-trial-button off nodata">Iniciar ensayo</button>
+    </div>    
+    <div class="center">
+        <div id="timerDisplay" class="stop">
+            Tiempo transcurrido: <span id="minutes">00</span>:<span id="seconds">00</span>
+        </div>
+    </div>
+    <!-- Botón para el gráfico 1 -->
+    <div id="chartContainer" class="grid-container">
+        <script>
+            // Función para generar el HTML para cada conjunto de gráficos
+            function generateChartHTML(index, title) {
+                return `
+                <div class="chart-container">
+                    <h2>${title}</h2>
+                    <div class="center">
+                        <button id="connectBleButton${index}" class="toggle-button connectButton disconnected">Conectar</button>
+                        <!-- <button id="disconnectBleButton${index}" class="disconnectButton">Desconectar</button> -->
+                        <p id="timestamp_p${index}" class="gray-label disconnected">Última lectura: <span id="timestamp${index}"></span></p>
+                        <p class="gray-label">Estado conexión: <strong><span id="bleState${index}" style="color:#d13a30;">Desconectado</span></strong></p>
+                    </div>
+                    <div class="card">
+                        <canvas id="acc_chart_${index}" width="400" height="150"></canvas>
+                        <canvas id="gyr_chart_${index}" width="400" height="150"></canvas>
+                    </div>
+                    <div class="center">
+                        <button id="motorButton${index}" class="toggle-button toggle-motor-button off disconnected">Activar motor</button>
+                    </div>
+                </div>
+                `;
+            }
+
+            // Generar y agregar el HTML al contenedor
+            var chartContainer = document.getElementById('chartContainer');
+            var titles = ["Muslo Izquierdo", "Muslo Derecho", "Gemelo Izquierdo", "Gemelo Izquierdo"];
+            for (let i = 1; i <= 4; i++) {
+                chartContainer.innerHTML += generateChartHTML(i, titles[i - 1]);
+            }
+        </script>
+    </div>
+
+    <script src="js/script.js" type="module"></script>
+</body>
+
+</html>
