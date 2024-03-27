@@ -2,10 +2,14 @@
 
 ## Estructura del Proyecto
 
+### WIFI
 - `ESP32SENDER/ESP32SENDER.ino`: Script para los dispositivos ESP32 emisores.
 - `ESP32RECEIVER/ESP32RECEIVER.ino`: Script para el dispositivo ESP32 receptor, el cual además monta el servidor web.
 - `ESP32RECEIVER/data`: Carpeta donde está alojada la aplicación web que despliega los datos provenientes de los sensores.
 
+### BLE
+- `CLIENT_BT.ino`: Script para los dispositivos ESP32 emisores.
+- `web/`: Carpeta donde está alojada la aplicación web que despliega los datos provenientes de los sensores.
 
 ## Librerías requeridas
 - TwoWayESP
@@ -15,3 +19,4 @@
 - Adafruit MPU6050
 - ESPAsyncWebSrv
 - Arduino_JSON
+- BLEPeripheral
