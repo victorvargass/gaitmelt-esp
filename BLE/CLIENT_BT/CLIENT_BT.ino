@@ -6,15 +6,15 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
-#define BOARD_ID 4
+#define BOARD_ID 3
 #define MOTORINA 26
 #define MOTORINB 25
 
 // https://www.uuidgenerator.net/
 
-#define SERVICE_UUID        "394b9eb5-53e6-4a6c-8207-1cac1784d622"
-#define SENSOR_CHARACTERISTIC_UUID "4a7a8178-c2ac-40e2-85c8-c13b7aabe0ca"
-#define MOTOR_CHARACTERISTIC_UUID "60d025dd-417c-4ee6-8ffb-2993d99fb501"
+#define SERVICE_UUID        "54095b1e-941e-4d7c-8465-e29a70b84f5a"
+#define SENSOR_CHARACTERISTIC_UUID "4ce979b1-4717-4b37-af73-f83605649e2c"
+#define MOTOR_CHARACTERISTIC_UUID "6688009e-3db8-4fa9-8027-af5bdc0fcf4d"
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pSensorCharacteristic = NULL;
@@ -49,7 +49,7 @@ void packStructToBytes(struct_message_mpu *data, uint8_t *buffer) {
 const long interval = 100;
 unsigned int readingMPUId = 0;
 
-void readMPUData(){
+void readMPUData() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
@@ -76,20 +76,20 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* pMotorCharacteristic) {
-        std::string value = pMotorCharacteristic->getValue();
-        if (value.length() > 0) {
-            Serial.print("Characteristic event, written: ");
-            Serial.println(static_cast<int>(value[0])); // Print the integer value
+      std::string value = pMotorCharacteristic->getValue();
+      if (value.length() > 0) {
+        Serial.print("Characteristic event, written: ");
+        Serial.println(static_cast<int>(value[0])); // Print the integer value
 
-            int receivedValue = static_cast<int>(value[0]);
-            if (receivedValue == 1) {
-                analogWrite(MOTORINA, motorVelocity);
-                analogWrite(MOTORINB, 0);
-                delay(vibrationDuration);
-                analogWrite(MOTORINA, 0);
-                analogWrite(MOTORINB, 0);
-            }
+        int receivedValue = static_cast<int>(value[0]);
+        if (receivedValue == 1) {
+          analogWrite(MOTORINA, motorVelocity);
+          analogWrite(MOTORINB, 0);
+          delay(vibrationDuration);
+          analogWrite(MOTORINA, 0);
+          analogWrite(MOTORINB, 0);
         }
+      }
     }
 };
 
@@ -98,9 +98,9 @@ void setup() {
   pinMode(MOTORINA, OUTPUT);
   pinMode(MOTORINB, OUTPUT);
 
-  if (!mpu.begin()){
+  if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
-    while(1)
+    while (1)
       ;
     delay(10);
   }
@@ -119,18 +119,18 @@ void setup() {
 
   // Create a BLE Characteristic
   pSensorCharacteristic = pService->createCharacteristic(
-                      SENSOR_CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_READ   |
-                      BLECharacteristic::PROPERTY_WRITE  |
-                      BLECharacteristic::PROPERTY_NOTIFY |
-                      BLECharacteristic::PROPERTY_INDICATE
-                    );
+                            SENSOR_CHARACTERISTIC_UUID,
+                            BLECharacteristic::PROPERTY_READ   |
+                            BLECharacteristic::PROPERTY_WRITE  |
+                            BLECharacteristic::PROPERTY_NOTIFY |
+                            BLECharacteristic::PROPERTY_INDICATE
+                          );
 
   // Create the ON button Characteristic
   pMotorCharacteristic = pService->createCharacteristic(
-                      MOTOR_CHARACTERISTIC_UUID,
-                      BLECharacteristic::PROPERTY_WRITE
-                    );
+                           MOTOR_CHARACTERISTIC_UUID,
+                           BLECharacteristic::PROPERTY_WRITE
+                         );
 
   // Register the callback for the ON button characteristic
   pMotorCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
@@ -153,28 +153,28 @@ void setup() {
 }
 
 void loop() {
-    // notify changed value
-    if (deviceConnected) {
-        readMPUData();
-        // Convertir estructura a bytes y establecer el valor de la característica BLE
-        uint8_t buffer[sizeof(struct_message_mpu)];
-        packStructToBytes(&thisMPUReadings, buffer);
-        pSensorCharacteristic->setValue(buffer, sizeof(buffer));
-        pSensorCharacteristic->notify();
-        delay(interval); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
-    }
-    // disconnecting
-    if (!deviceConnected && oldDeviceConnected) {
-        Serial.println("Device disconnected.");
-        delay(500); // give the bluetooth stack the chance to get things ready
-        pServer->startAdvertising(); // restart advertising
-        Serial.println("Start advertising");
-        oldDeviceConnected = deviceConnected;
-    }
-    // connecting
-    if (deviceConnected && !oldDeviceConnected) {
-        // do stuff here on connecting
-        oldDeviceConnected = deviceConnected;
-        Serial.println("Device Connected");
-    }
+  // notify changed value
+  if (deviceConnected) {
+    readMPUData();
+    // Convertir estructura a bytes y establecer el valor de la característica BLE
+    uint8_t buffer[sizeof(struct_message_mpu)];
+    packStructToBytes(&thisMPUReadings, buffer);
+    pSensorCharacteristic->setValue(buffer, sizeof(buffer));
+    pSensorCharacteristic->notify();
+    delay(interval); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+  }
+  // disconnecting
+  if (!deviceConnected && oldDeviceConnected) {
+    Serial.println("Device disconnected.");
+    delay(500); // give the bluetooth stack the chance to get things ready
+    pServer->startAdvertising(); // restart advertising
+    Serial.println("Start advertising");
+    oldDeviceConnected = deviceConnected;
+  }
+  // connecting
+  if (deviceConnected && !oldDeviceConnected) {
+    // do stuff here on connecting
+    oldDeviceConnected = deviceConnected;
+    Serial.println("Device Connected");
+  }
 }
