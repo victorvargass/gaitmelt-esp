@@ -15,6 +15,7 @@
 #define SERVICE_UUID        "54095b1e-941e-4d7c-8465-e29a70b84f5a"
 #define SENSOR_CHARACTERISTIC_UUID "4ce979b1-4717-4b37-af73-f83605649e2c"
 #define MOTOR_CHARACTERISTIC_UUID "6688009e-3db8-4fa9-8027-af5bdc0fcf4d"
+#define NUM_STRUCTS_TO_SEND 16
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pSensorCharacteristic = NULL;
@@ -40,13 +41,13 @@ typedef struct struct_message_mpu
 } struct_message_mpu;
 
 struct_message_mpu thisMPUReadings;
+struct_message_mpu mpuReadings[NUM_STRUCTS_TO_SEND]; // Arreglo para almacenar las lecturas
 
-// Función para empaquetar la estructura en un array de bytes
-void packStructToBytes(struct_message_mpu *data, uint8_t *buffer) {
-  memcpy(buffer, data, sizeof(struct_message_mpu));
+void packStructsToBytes(struct_message_mpu *data, uint8_t *buffer, int num_structs) {
+  memcpy(buffer, data, sizeof(struct_message_mpu) * num_structs);
 }
 
-const long interval = 100;
+const long interval = 10;
 unsigned int readingMPUId = 0;
 
 void readMPUData() {
@@ -153,15 +154,29 @@ void setup() {
 }
 
 void loop() {
+   static int structsRead = 0; // Variable para mantener un registro de cuántas estructuras se han leído
   // notify changed value
   if (deviceConnected) {
-    readMPUData();
-    // Convertir estructura a bytes y establecer el valor de la característica BLE
-    uint8_t buffer[sizeof(struct_message_mpu)];
-    packStructToBytes(&thisMPUReadings, buffer);
-    pSensorCharacteristic->setValue(buffer, sizeof(buffer));
-    pSensorCharacteristic->notify();
-    delay(interval); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+    if (structsRead < NUM_STRUCTS_TO_SEND) {
+      // Leer los datos de la MPU solo si no hemos leído suficientes estructuras aún
+      readMPUData();
+      // Almacenar los datos en el arreglo
+      mpuReadings[structsRead] = thisMPUReadings;
+      // Incrementar el contador de estructuras leídas
+      structsRead++;
+    }
+    // Solo enviar cuando hayamos leído suficientes estructuras
+    if (structsRead >= NUM_STRUCTS_TO_SEND) {
+      // Convertir estructuras a bytes y establecer el valor de la característica BLE
+      uint8_t buffer[sizeof(struct_message_mpu) * NUM_STRUCTS_TO_SEND];
+      packStructsToBytes(mpuReadings, buffer, NUM_STRUCTS_TO_SEND);
+      pSensorCharacteristic->setValue(buffer, sizeof(buffer));
+      pSensorCharacteristic->notify();
+
+      // Reiniciar el contador de estructuras leídas
+      structsRead = 0;
+      delay(interval); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+    }
   }
   // disconnecting
   if (!deviceConnected && oldDeviceConnected) {
