@@ -1,4 +1,4 @@
-import { disconnectDevice, isWebBluetoothEnabled, parseBytesToStruct, getDateTime } from './utils.js';
+import { isWebBluetoothEnabled, getDateTime, getFullDateTime, getTimeDiff } from './utils.js';
 
 //Define BLE Device Specs
 var deviceName = 'GaitMelt Device ';
@@ -27,23 +27,65 @@ const motorCharacteristics = [
 // DOM Elements
 const connectButtons = [];
 const motorButtons = [];
+const last_values = [];
 const timestamp_ps = [];
 const bleStateContainers = [];
 const timestampContainers = [];
+const lastAccContainers = [];
+const lastGyrContainers = [];
 
 var connectedDevices = 0;
 var initTimestamp = 0;
+var endTimestamp = 0;
 
-
-const trialButton = document.getElementById('trialButton')
+const trialContainer = document.getElementById('trialContainer')
 const timerDisplay = document.getElementById('timerDisplay')
+
+var acc_data = {
+    1: [[], [], []],
+    2: [[], [], []],
+    3: [[], [], []],
+    4: [[], [], []],
+};
+
+var gyr_data = {
+    1: [[], [], []],
+    2: [[], [], []],
+    3: [[], [], []],
+    4: [[], [], []],
+};
+
+var data_counters = [0, 0, 0, 0]
+
+var buttonStates = {
+    1: false,
+    2: false,
+    3: false,
+    4: false,
+};
+
+var export_data = false;
+
+
+let timerInterval; // Variable para almacenar el intervalo del temporizador
+let startTime; // Variable para almacenar el tiempo de inicio del contador
+
+const minutesDisplay = document.getElementById('minutes');
+const secondsDisplay = document.getElementById('seconds');
+
+//var init_times = [];
+//var end_times = [];
+//var c = 0;
 
 for (let i = 1; i <= 4; i++) {
     connectButtons.push(document.getElementById(`connectBleButton${i}`));
+    last_values.push(document.getElementById(`last_sensor_values_p${i}`));
     timestamp_ps.push(document.getElementById(`timestamp_p${i}`));
     motorButtons.push(document.getElementById(`motorButton${i}`));
     bleStateContainers.push(document.getElementById(`bleState${i}`));
     timestampContainers.push(document.getElementById(`timestamp${i}`));
+    lastAccContainers.push(document.getElementById(`last_acc_values_${i}`));
+    lastGyrContainers.push(document.getElementById(`last_gyr_values_${i}`));
 }
 
 var bleServer = []
@@ -56,7 +98,8 @@ for (let i = 0; i < connectButtons.length; i++) {
         var button = connectButtons[i]
         if (button.classList.contains("disconnected") && isWebBluetoothEnabled(bleStateContainers[i])) {
             connectToDevice(
-                bleServices[i], bleStateContainers[i], sensorCharacteristics[i], timestampContainers[i], i)
+                bleServices[i], bleStateContainers[i], sensorCharacteristics[i],
+                timestampContainers[i], lastAccContainers[i], lastGyrContainers[i], i)
         }
         else if (button.classList.contains("connected")) {
             disconnectDevice(bleStateContainers[i], bleServer[i], sensorCharacteristicFound[i], i);
@@ -64,35 +107,75 @@ for (let i = 0; i < connectButtons.length; i++) {
     });
 }
 
-function onDisconnected(event, bleService, bleStateContainer, sensorCharacteristic, timestampContainer, index) {
+function onDisconnected(event, bleService, bleStateContainer, sensorCharacteristic, timestampContainer, lastAccContainer, lastGyrContainer, index) {
     console.log('Device Disconnected:', event.target.device.name);
     bleStateContainer.innerHTML = "Dispositivo desconectado";
     bleStateContainer.style.color = "#d13a30";
 
     connectToDevice(
-        bleService, bleStateContainer, sensorCharacteristic, timestampContainer, index)
+        bleService, bleStateContainer, sensorCharacteristic, timestampContainer, lastAccContainer, lastGyrContainer, index)
 }
 
-function handleCharacteristicChange(event, timestampContainer) {
-    const newValueReceived = parseBytesToStruct(event.target.value.buffer);
-    var board_id = newValueReceived.id;
-    var time = script_time[board_id - 1];
-    var accData = [newValueReceived.acc_x, newValueReceived.acc_y, newValueReceived.acc_z];
-    var gyrData = [newValueReceived.gyr_x, newValueReceived.gyr_y, newValueReceived.gyr_z];
-    addData(acc_chart[board_id], time, accData);
-    addData(gyr_chart[board_id], time, gyrData);
-    if (export_data) {
-        acc_data[board_id].push(accData);
-        gyr_data[board_id].push(gyrData);
+async function handleCharacteristicChange(event, timestampContainer, lastAccContainer, lastGyrContainer) {
+    const dataView = new DataView(event.target.value.buffer);
+
+    // Calcular el offset una vez fuera del bucle
+    const offsetMultiplier = 32;
+
+    // Variables para acumular los datos
+    const accDataArray = [];
+    const gyrDataArray = [];
+    let board_id; // Declarar board_id fuera del bucle
+
+    for (let i = 0; i < 16; i++) {
+        const offset = i * offsetMultiplier;
+
+        // Extraer los datos de la estructura
+        board_id = dataView.getInt32(offset, true); // Asignar valor a board_id dentro del bucle
+        const accData = [
+            dataView.getFloat32(offset + 4, true),
+            dataView.getFloat32(offset + 8, true),
+            dataView.getFloat32(offset + 12, true)
+        ];
+        const gyrData = [
+            dataView.getFloat32(offset + 16, true),
+            dataView.getFloat32(offset + 20, true),
+            dataView.getFloat32(offset + 24, true)
+        ];
+
+        // Almacenar los datos en matrices temporales
+        accDataArray.push(accData);
+        gyrDataArray.push(gyrData);
     }
-    script_time[board_id - 1] = script_time[board_id - 1] + 1;
+
+    // Si es necesario, almacenar los datos para exportación
+    if (export_data) {
+        for (let i = 0; i < accDataArray.length; i++) {
+            acc_data[board_id].push(accDataArray[i]);
+            gyr_data[board_id].push(gyrDataArray[i]);
+        }
+        data_counters[board_id-1]++;
+        console.log(data_counters)
+    }
+
+    // Actualizar el contenido del contenedor de datos una vez fuera del bucle
+    let accHTML = "";
+    let gyrHTML = "";
+    
+    accHTML += `x:${accDataArray[0][0].toFixed(3)} y:${accDataArray[0][1].toFixed(3)} z:${accDataArray[0][2].toFixed(3)} `;
+    gyrHTML += `x:${gyrDataArray[0][0].toFixed(3)} y:${gyrDataArray[0][1].toFixed(3)} z:${gyrDataArray[0][2].toFixed(3)} `;
+    lastAccContainer.innerHTML = accHTML;
+    lastGyrContainer.innerHTML = gyrHTML;
+
+    // Actualizar el contenedor de la marca de tiempo
     timestampContainer.innerHTML = getDateTime();
 }
 
 // Connect to BLE Device and Enable Notifications
-function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, timestampContainer, index) {
+function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, timestampContainer, lastAccContainer, lastGyrContainer, index) {
     var connectButton = connectButtons[index]
     var motorButton = motorButtons[index]
+    var lastValues = last_values[index]
     var timestamp_p = timestamp_ps[index]
     console.log('Initializing Bluetooth...');
     navigator.bluetooth.requestDevice({
@@ -109,7 +192,7 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             device.addEventListener('gattservicedisconnected', function () {
                 onDisconnected(
                     device.name, bleService, bleStateContainer,
-                    sensorCharacteristic, timestampContainer, index
+                    sensorCharacteristic, timestampContainer, lastAccContainer, lastGyrContainer, index
                 )
             });
             return device.gatt.connect();
@@ -127,8 +210,17 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
         .then(characteristic => {
             console.log("Characteristic discovered:", characteristic.uuid);
             sensorCharacteristicFound[index] = characteristic;
-            characteristic.addEventListener('characteristicvaluechanged', function (event) {
-                handleCharacteristicChange(event, timestampContainer);
+            
+            characteristic.addEventListener('characteristicvaluechanged', async function (event) {
+                //var t = new Date().getTime()
+                //init_times.push(t)
+                await handleCharacteristicChange(event, timestampContainer, lastAccContainer, lastGyrContainer);
+                //t = new Date().getTime()
+                //end_times.push(t)
+                //console.log("timestamps", init_times[c], end_times[c-1])
+                //console.log("diff ms", init_times[c] - end_times[c-1])
+                //console.log("freq", 1000 / (init_times[c] - end_times[c-1]) )
+                //c++;
             });
             characteristic.startNotifications();
             console.log("Notifications Started.");
@@ -141,18 +233,21 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             connectButton.classList.add("connected");
             motorButton.classList.remove("disconnected");
             motorButton.classList.add("connected");
+            lastValues.classList.remove("disconnected");
+            lastValues.classList.add("connected");
             timestamp_p.classList.remove("disconnected");
             timestamp_p.classList.add("connected");
             connectedDevices++;
             console.log("Number of connected devices: ", connectedDevices)
-            if (connectedDevices == 4){
-                trialButton.classList.remove("nodata");
+            //if (connectedDevices == 4){
+            if ((connectedDevices == 4) && (trialContainer.classList.contains('nodata'))){
+                trialContainer.classList.remove("nodata");
             };
             return characteristic.readValue();
         })
         .then(value => {
             //console.log("Read value: ", value);
-            const decodedValue = parseBytesToStruct(value.buffer)
+            //const decodedValue = parseBytesToStruct(value.buffer)
             //console.log("Decoded value: ", decodedValue);
         })
         .catch(error => {
@@ -163,6 +258,8 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             connectButton.classList.add("disconnected");
             motorButton.classList.remove("connected");
             motorButton.classList.add("disconnected");
+            lastValues.classList.remove("connected");
+            lastValues.classList.add("disconnected");
             timestamp_p.classList.remove("connected");
             timestamp_p.classList.add("disconnected");
 
@@ -171,36 +268,54 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
         })
 }
 
-var acc_data = {
-    1: [[], [], []],
-    2: [[], [], []],
-    3: [[], [], []],
-    4: [[], [], []],
-};
+function disconnectDevice(bleStateContainer, bleServer, sensorCharacteristicFound, index) {
+    console.log("Disconnect Device.");
+    if (bleServer && bleServer.connected) {
+        let confirmacion = confirm("¿Estás seguro de que deseas desconectar el dispositivo?");
+        if (confirmacion) {
+            if (sensorCharacteristicFound) {
+                sensorCharacteristicFound.stopNotifications()
+                    .then(() => {
+                        console.log("Notifications Stopped");
+                        return bleServer.disconnect();
+                    })
+                    .then(() => {
+                        console.log("Device Disconnected");
 
-var gyr_data = {
-    1: [[], [], []],
-    2: [[], [], []],
-    3: [[], [], []],
-    4: [[], [], []],
-};
-var script_time = [0, 0, 0, 0];
+                        var connectButton = document.getElementById(`connectBleButton${index + 1}`)
+                        var motorButton = document.getElementById(`motorButton${index + 1}`)
+                        var last_values = document.getElementById(`last_sensor_values_p${index + 1}`)
+                        var timestamp_p = document.getElementById(`timestamp_p${index + 1}`)
+                        connectButton.innerText = "Conectar"
+                        connectButton.classList.remove("connected");
+                        connectButton.classList.add("disconnected");
+                        motorButton.classList.remove("connected");
+                        motorButton.classList.add("disconnected");
+                        last_values.classList.remove("connected");
+                        last_values.classList.add("disconnected");
+                        timestamp_p.classList.remove("connected");
+                        timestamp_p.classList.add("disconnected");
 
-var buttonStates = {
-    1: false,
-    2: false,
-    3: false,
-    4: false,
-};
+                        bleStateContainer.innerHTML = "Desconectado";
+                        bleStateContainer.style.color = "#d13a30";
 
-var export_data = false;
-
-
-let timerInterval; // Variable para almacenar el intervalo del temporizador
-let startTime; // Variable para almacenar el tiempo de inicio del contador
-
-const minutesDisplay = document.getElementById('minutes');
-const secondsDisplay = document.getElementById('seconds');
+                        connectedDevices--;
+                    })
+                    .catch(error => {
+                        console.log("An error occurred:", error);
+                    });
+            } else {
+                console.log("No characteristic found to disconnect.");
+            }
+        } else {
+            console.log("El usuario ha cancelado.");
+        }
+    } else {
+        // Throw an error if Bluetooth is not connected
+        console.error("Bluetooth is not connected.");
+        window.alert("Bluetooth is not connected.")
+    }
+}
 
 // Función para actualizar el tiempo transcurrido
 function updateTimer() {
@@ -227,18 +342,18 @@ function toggleTrialButton(buttonId) {
         if (button.classList.contains("on")) {
             let confirmacion = confirm("¿Estás seguro de que deseas detener el ensayo?");
             if (confirmacion) {
+                var trialName = document.getElementById("trialName");
                 button.innerText = "Iniciar ensayo";
                 button.classList.remove("on");
                 button.classList.add("off");
                 buttonStates[buttonId] = false;
-                downloadCSV()
+                downloadCSV(trialName.value)
                 timerDisplay.classList.add("stop")
+                trialName.value = "";
                 clearInterval(timerInterval);
             }
         } else {
-            const currentDate = new Date();
-            const timestamp = currentDate.getTime();
-            initTimestamp = timestamp.toString();
+            initTimestamp = new Date().getTime();
 
             button.innerText = "Detener ensayo";
             button.classList.remove("off");
@@ -327,24 +442,44 @@ function getMinDataLength(data) {
     let length2 = data[2].length;
     let length3 = data[3].length;
     let length4 = data[4].length;
+    //let minLength = Math.min(length1, length2, length3, length4);
     let minLength = Math.min(length1, length2, length3, length4);
+    console.log(length1, length2, length3, length4)
     return minLength
 }
 
-function downloadCSV() {
+function downloadCSV(trialName) {
+    console.log("BEFORE BEFORE", getMinDataLength(acc_data), acc_data)
     acc_data = deleteChartData(acc_data);
     gyr_data = deleteChartData(gyr_data);
     var data_number = getMinDataLength(acc_data);
-    var time_data = Array.from({ length: data_number }, (_, index) => (index * 0.1).toFixed(1));
+
+    endTimestamp = new Date().getTime();
+    var trialDuration = endTimestamp - initTimestamp;
+    var frequency  = (data_number - 1)/trialDuration
+    const timeBetweenPointsMs = 1 / frequency;
+    const timeBetweenPointsSec = timeBetweenPointsMs / 1000;
+
+    var time_data = Array.from({ length: data_number }, (_, index) => (index * timeBetweenPointsSec).toFixed(3));
+    console.log("BEFORE", getMinDataLength(acc_data), acc_data)
+    for (let i = 1; i <= 4; i++) {
+        acc_data[i].slice(-data_number);
+        gyr_data[i].slice(-data_number);
+    }
+    console.log("AFTER", getMinDataLength(acc_data), acc_data)
     var combined_data = time_data.map(function (t, index) {
         if (acc_data[1][index].length === 3) {
             return [
                 index,
                 t,
-                acc_data[1][index][0], acc_data[1][index][1], acc_data[1][index][2], gyr_data[1][index][0], gyr_data[1][index][1], gyr_data[1][index][2],
-                acc_data[2][index][0], acc_data[2][index][1], acc_data[2][index][2], gyr_data[2][index][0], gyr_data[2][index][1], gyr_data[2][index][2],
-                acc_data[3][index][0], acc_data[3][index][1], acc_data[3][index][2], gyr_data[3][index][0], gyr_data[3][index][1], gyr_data[3][index][2],
-                acc_data[4][index][0], acc_data[4][index][1], acc_data[4][index][2], gyr_data[4][index][0], gyr_data[4][index][1], gyr_data[4][index][2],
+                acc_data[1][index][0], acc_data[1][index][1], acc_data[1][index][2],
+                gyr_data[1][index][0], gyr_data[1][index][1], gyr_data[1][index][2],
+                acc_data[2][index][0], acc_data[2][index][1], acc_data[2][index][2],
+                gyr_data[2][index][0], gyr_data[2][index][1], gyr_data[2][index][2],
+                acc_data[3][index][0], acc_data[3][index][1], acc_data[3][index][2],
+                gyr_data[3][index][0], gyr_data[3][index][1], gyr_data[3][index][2],
+                acc_data[4][index][0], acc_data[4][index][1], acc_data[4][index][2],
+                gyr_data[4][index][0], gyr_data[4][index][1], gyr_data[4][index][2],
             ];
         } else {
             return undefined;
@@ -367,14 +502,23 @@ function downloadCSV() {
     ];
     combined_data.unshift(headers);
 
-    var csvContent = "data:text/csv;charset=utf-8," + combined_data.map(function (row) {
-        return row.join(",");
-    }).join("\n");
+    // Datos adicionales
+    var additionalData = [
+        "TrialName:,"+trialName+",,,,,,,,,,,,,,,,,",
+        "StartTime:,"+getFullDateTime(initTimestamp)+",,,,,,,,,,,,,,,,,",
+        "EndTime:,"+getFullDateTime(endTimestamp)+",,,,,,,,,,,,,,,,,",
+        "TrialDuration:,"+getTimeDiff(trialDuration)+",,,,,,,,,,,,,,,,,",
+        "",
+    ];
+
+    // Combinar los datos de la cabecera y los datos adicionales
+    var headersAndData = additionalData.concat(combined_data);
+    var csvContent = "data:text/csv;charset=utf-8," + headersAndData.join("\n");
 
     var encodedUri = encodeURI(csvContent);
     var link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "gaitmelt_trial_" + initTimestamp + ".csv");
+    link.setAttribute("download", "gaitmelt_trial_" + trialName+ ".csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -392,86 +536,4 @@ function downloadCSV() {
         3: [[], [], []],
         4: [[], [], []],
     };
-}
-
-
-function createChart(chartId, mpu_data, label, title, yAxisLabel, dataSetColors, minValue, maxValue) {
-    var ctx = document.getElementById(chartId).getContext('2d');
-    return new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: mpu_data.map(function (dataSet, index) {
-                return {
-                    label: label[index],
-                    data: dataSet,
-                    borderColor: dataSetColors[index],
-                    backgroundColor: 'transparent',
-                    pointRadius: 1,
-                    pointBackgroundColor: dataSetColors[index],
-                    fill: false
-                };
-            })
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: title
-                }
-            },
-            scales: {
-                x: {
-                    type: 'category',
-                    position: 'bottom',
-                    title: {
-                        display: true,
-                        text: 'Tiempo (s)'
-                    },
-                    ticks: {
-                        maxTicksLimit: 6
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: yAxisLabel
-                    },
-                    suggestedMin: minValue,
-                    suggestedMax: maxValue
-                }
-            }
-        }
-    });
-}
-
-var acc_chart = {};
-var gyr_chart = {};
-var accSetColors = ['red', 'blue', 'green'];
-var gyrSetColors = ['purple', 'orange', 'pink'];
-
-
-for (var i = 1; i <= 4; i++) {
-    acc_chart[i] = createChart('acc_chart_' + i, acc_data[i], ['x', 'y', 'z'], "Acelerómetro", 'Acceleración (m/s^2)', accSetColors, -20, 20);
-    gyr_chart[i] = createChart('gyr_chart_' + i, gyr_data[i], ['x', 'y', 'z'], "Giroscopio", 'Radianes', gyrSetColors, -6, 6);
-}
-
-function addData(chart, time, newData) {
-    var timeInSeconds = Math.floor(time / 10); // Convertir a segundos
-    chart.data.labels.push(timeInSeconds.toString());
-
-    newData.forEach(function (data, index) {
-        chart.data.datasets[index].data.push({ x: timeInSeconds, y: data });
-    });
-
-    var maxDataPoints = 50;
-    if (chart.data.labels.length > maxDataPoints) {
-        chart.data.labels.shift();
-        chart.data.datasets.forEach(function (dataset) {
-            dataset.data.shift();
-        });
-    }
-    chart.update('none');
 }

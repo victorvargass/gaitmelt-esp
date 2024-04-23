@@ -87,10 +87,10 @@ h2 {
     
     /* Ajusta el tamaño de los gráficos en la vista de celular */
     .chart-container {
-        height: 400px; /* Ajusta la altura según tus preferencias */
+        height: 85px; /* height: 400px; Ajusta la altura según tus preferencias */
         width: 100%;
         text-align:center;
-        padding-bottom: 40%;
+        padding-bottom: 45%;
     }
 }
 
@@ -99,7 +99,7 @@ h2 {
 /* Estilo para los botones */
 .toggle-button {
     display: block;
-    margin: 0 auto; /* Centra el botón horizontalmente */
+    margin: 5px auto; /* Centra el botón horizontalmente */
     padding: 10px 20px;
     font-size: 16px;
     border: none;
@@ -183,12 +183,35 @@ button {
     display : none
 }
 
-#trialButton:not(.nodata) {
+.container.nodata {
+    display : none
+}
+
+#trialName {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.container {
+    margin: 5 auto; /* Centra el botón horizontalmente */
+    border: 1px solid #ccc; /* borde */
+    border-radius: 5px; /* esquinas redondeadas */
+    font-size: 16px; /* tamaño de fuente */
+    color: #333; /* color del texto */
+    background-color: #fff; /* color de fondo */
+    outline: none; /* elimina el resplandor de foco */
+}
+
+.container::placeholder {
+    color: #999; /* color del marcador de posición */
+}
+
+[id^="last_sensor_values_p"].connected {
     display : inline
 }
 
-#trialButton.nodata {
-    display : none
+[id^="last_sensor_values_p"].disconnected {
+    display: none
 }
 
 [id^="timestamp_p"].connected {

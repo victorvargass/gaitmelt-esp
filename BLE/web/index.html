@@ -13,11 +13,12 @@
 
 <body>
     <div class="topnav">
-        <h1>GaitMelt Dasboard</h1>
+        <h1>GaitMelt Dashboard</h1>
     </div>
-    <div class="center">
-        <button id="trialButton" class="toggle-button toggle-trial-button off nodata">Iniciar ensayo</button>
-    </div>    
+    <div id="trialContainer" class="center container nodata">
+        <input type="text" id="trialName" name="trialName" placeholder="Nombre de prueba"></input>
+        <button id="trialButton" class="toggle-button toggle-trial-button off">Iniciar ensayo</button>
+    </div>
     <div class="center">
         <div id="timerDisplay" class="stop">
             Tiempo transcurrido: <span id="minutes">00</span>:<span id="seconds">00</span>
@@ -29,17 +30,19 @@
             // Función para generar el HTML para cada conjunto de gráficos
             function generateChartHTML(index, title) {
                 return `
-                <div class="chart-container">
+                <div class="chart-container container">
                     <h2>${title}</h2>
                     <div class="center">
                         <button id="connectBleButton${index}" class="toggle-button connectButton disconnected">Conectar</button>
                         <!-- <button id="disconnectBleButton${index}" class="disconnectButton">Desconectar</button> -->
-                        <p id="timestamp_p${index}" class="gray-label disconnected">Última lectura: <span id="timestamp${index}"></span></p>
+                        <div id="last_sensor_values_p${index}" class="gray-label disconnected">
+                            <span id="last_acc_values_${index}"></span>
+                            <span id="last_gyr_values_${index}"></span>
+                        </div>
+                        <div>
+                            <p id="timestamp_p${index}" class="gray-label disconnected">Última lectura: <span id="timestamp${index}"></span></p>
+                        </div>
                         <p class="gray-label">Estado conexión: <strong><span id="bleState${index}" style="color:#d13a30;">Desconectado</span></strong></p>
-                    </div>
-                    <div class="card">
-                        <canvas id="acc_chart_${index}" width="400" height="150"></canvas>
-                        <canvas id="gyr_chart_${index}" width="400" height="150"></canvas>
                     </div>
                     <div class="center">
                         <button id="motorButton${index}" class="toggle-button toggle-motor-button off disconnected">Activar motor</button>
