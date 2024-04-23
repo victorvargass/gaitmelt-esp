@@ -251,7 +251,8 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             //console.log("Decoded value: ", decodedValue);
         })
         .catch(error => {
-            console.log('Error: ', error);
+            console.log('Error: ', error.messsage);
+            /*
             connectButton.innerText = "Conectar"
             connectButton.classList.remove("connected");
             connectButton.classList.remove("connecting");
@@ -265,6 +266,7 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
 
             bleStateContainer.innerHTML = "Error de conexión. Vuelve a intentarlo";
             bleStateContainer.style.color = "#d13a30";
+            */
         })
 }
 
