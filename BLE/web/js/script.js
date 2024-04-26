@@ -41,6 +41,8 @@ var endTimestamp = 0;
 const trialContainer = document.getElementById('trialContainer')
 const timerDisplay = document.getElementById('timerDisplay')
 
+var motorActivated = [0, 0]
+
 var acc_data = {
     1: [[], [], []],
     2: [[], [], []],
@@ -116,6 +118,41 @@ function onDisconnected(event, bleService, bleStateContainer, sensorCharacterist
         bleService, bleStateContainer, sensorCharacteristic, timestampContainer, lastAccContainer, lastGyrContainer, index)
 }
 
+function getACCState(acc_sensor_data){
+    const xz_margin_degrees = 7;
+    const yz_margin_degrees = 20;
+    var sensor_state = ""
+    var x = acc_sensor_data[acc_sensor_data.length - 1][0]
+    var y = acc_sensor_data[acc_sensor_data.length - 1][1]
+    var z = acc_sensor_data[acc_sensor_data.length - 1][2]
+
+    var xz_orientation_degrees = Math.atan2(x, z) * (180.0 / Math.PI);
+    var yz_orientation_degrees = Math.atan2(y, z) * (180.0 / Math.PI);
+
+    // Mostrar la orientación estimada
+    //console.log("Orientación XZ: " + xz_orientation_degrees + " grados");
+    //console.log("Orientación YZ: " + yz_orientation_degrees + " grados");
+    if (
+        (xz_orientation_degrees >= -85 - xz_margin_degrees && xz_orientation_degrees <= -85 + xz_margin_degrees)
+    ){
+        //console.log("Orientación XZ: " + xz_orientation_degrees + " grados");
+        //console.log("Orientación YZ: " + yz_orientation_degrees + " grados");
+        var sensor_state = "Base"
+    }
+    else if (
+        (yz_orientation_degrees >= 90 - yz_margin_degrees && yz_orientation_degrees <= 90 + yz_margin_degrees)
+    ){
+        var sensor_state = "Boton hacia abajo"
+    }
+    else{
+        var sensor_state = "En movimiento o no definida"
+    }
+
+    //EVITAR CUANDO ESTEN ESTATICOS (VER VALORES INICIALES)
+    //CALIBRAR??
+    return sensor_state
+}
+
 async function handleCharacteristicChange(event, timestampContainer, lastAccContainer, lastGyrContainer) {
     const dataView = new DataView(event.target.value.buffer);
 
@@ -147,7 +184,25 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
         accDataArray.push(accData);
         gyrDataArray.push(gyrData);
     }
-
+    /*
+    if (
+        board_id == 2 && buttonStates[1] == false &&
+        accDataArray[accDataArray.length - 1][1] < 8 && getACCState(accDataArray) != "Base"
+    ){  
+        console.log(gyrDataArray[gyrDataArray.length - 1])
+        console.log("3 Gemelo Izquierdo Y: ", accDataArray[accDataArray.length - 1][1])
+        toggleMotorButton("motorButton1", bleServer[0], bleServiceFound[0], motorCharacteristics[0])
+        console.log("Activate 1 Muslo Izquierdo", accDataArray[accDataArray.length - 1][1] < 8)
+    }
+    else{
+        console.log(
+            "gyrDataArray", gyrDataArray[gyrDataArray.length - 1],
+            "acc_data Y", accDataArray[accDataArray.length - 1][1],
+            "ESTADO", getACCState(accDataArray)
+        )
+    }
+    */
+    
     // Si es necesario, almacenar los datos para exportación
     if (export_data) {
         for (let i = 0; i < accDataArray.length; i++) {
@@ -155,7 +210,36 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
             gyr_data[board_id].push(gyrDataArray[i]);
         }
         data_counters[board_id-1]++;
-        console.log(data_counters)
+        //console.log(data_counters)
+        //1 Muslo Izquierdo
+        //2 Muslo Derecho
+        //3 Gemelo Izquierdo
+        //4 Gemelo Derecho
+        if (
+            board_id == 3 && buttonStates[1] == false &&
+            acc_data[3][acc_data[3].length - 1][1] < 9 && getACCState(acc_data[3]) != "Base"
+        ){
+            //console.log("3 Gemelo Izquierdo Y: ", acc_data[3][acc_data[3].length - 1][1])
+            toggleMotorButton("motorButton1", bleServer[0], bleServiceFound[0], motorCharacteristics[0])
+            //console.log("Activate 1 Muslo Izquierdo", acc_data[3][acc_data[3].length - 1][1] < 8)
+        }
+        if (
+            board_id == 4 && buttonStates[2] == false &&
+            acc_data[4][acc_data[4].length - 1][1] < 9 && getACCState(acc_data[4]) != "Base"
+        ){
+            //console.log("4 Gemelo Derecho Y: ", acc_data[4][acc_data[4].length - 1][1])
+            toggleMotorButton("motorButton2", bleServer[1], bleServiceFound[1], motorCharacteristics[1])
+            //console.log("Activate 2 Muslo Derecho", acc_data[4][acc_data[4].length - 1][1] < 7)
+        }
+        /*
+        else{
+            console.log(
+                "buttonStates[1]", buttonStates[1],
+                "acc_data Y", acc_data[3][acc_data[3].length - 1][1],
+                "ESTADO", getACCState(acc_data[3])
+            )
+        }
+        */
     }
 
     // Actualizar el contenido del contenedor de datos una vez fuera del bucle
@@ -252,7 +336,7 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
         })
         .catch(error => {
             console.log('Error: ', error.messsage);
-            /*
+            ///*
             connectButton.innerText = "Conectar"
             connectButton.classList.remove("connected");
             connectButton.classList.remove("connecting");
@@ -266,7 +350,7 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
 
             bleStateContainer.innerHTML = "Error de conexión. Vuelve a intentarlo";
             bleStateContainer.style.color = "#d13a30";
-            */
+            //*/
         })
 }
 
@@ -390,7 +474,7 @@ function writeOnCharacteristic(bleServer, bleServiceFound, c) {
 
 function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteristic) {
     var button = document.getElementById(buttonId);
-    writeOnCharacteristic(bleServer, bleServiceFound, motorCharacteristic)
+    //writeOnCharacteristic(bleServer, bleServiceFound, motorCharacteristic)
     if (button) {
         if (button.classList.contains("on")) {
             button.innerText = "Activar motor";
@@ -402,8 +486,9 @@ function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteri
             button.classList.remove("off");
             button.classList.add("on");
             buttonStates[buttonId] = true;
+            console.log("BOTON PRENDIDO MOTOR", buttonId, buttonStates[buttonId])
             button.disabled = true;
-            console.log("Vibrando...")
+            console.log(buttonId, "Vibrando...")
             setTimeout(() => {
                 button.disabled = false;
                 button.innerText = "Activar motor";
@@ -411,7 +496,7 @@ function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteri
                 button.classList.add("off");
                 buttonStates[buttonId] = false;
                 console.log("Motor apagado")
-            }, 2000);
+            }, 1000);
         }
     }
 }
