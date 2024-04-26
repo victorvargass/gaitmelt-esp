@@ -335,8 +335,8 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             //console.log("Decoded value: ", decodedValue);
         })
         .catch(error => {
-            console.log('Error: ', error.messsage);
-            ///*
+            console.log('Error: ', error);
+            /*
             connectButton.innerText = "Conectar"
             connectButton.classList.remove("connected");
             connectButton.classList.remove("connecting");
@@ -350,7 +350,7 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
 
             bleStateContainer.innerHTML = "Error de conexión. Vuelve a intentarlo";
             bleStateContainer.style.color = "#d13a30";
-            //*/
+            */
         })
 }
 
@@ -474,7 +474,7 @@ function writeOnCharacteristic(bleServer, bleServiceFound, c) {
 
 function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteristic) {
     var button = document.getElementById(buttonId);
-    //writeOnCharacteristic(bleServer, bleServiceFound, motorCharacteristic)
+    writeOnCharacteristic(bleServer, bleServiceFound, motorCharacteristic)
     if (button) {
         if (button.classList.contains("on")) {
             button.innerText = "Activar motor";
