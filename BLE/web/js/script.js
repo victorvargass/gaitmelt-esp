@@ -24,6 +24,9 @@ const motorCharacteristics = [
     '60d025dd-417c-4ee6-8ffb-2993d99fb501'
 ];
 
+var talon = [];
+var pressed = false;
+
 // DOM Elements
 const connectButtons = [];
 const motorButtons = [];
@@ -40,8 +43,6 @@ var endTimestamp = 0;
 
 const trialContainer = document.getElementById('trialContainer')
 const timerDisplay = document.getElementById('timerDisplay')
-
-var motorActivated = [0, 0]
 
 var acc_data = {
     1: [[], [], []],
@@ -60,10 +61,10 @@ var gyr_data = {
 var data_counters = [0, 0, 0, 0]
 
 var buttonStates = {
-    1: false,
-    2: false,
-    3: false,
-    4: false,
+    "motorButton1": false,
+    "motorButton2": false,
+    "motorButton3": false,
+    "motorButton4": false,
 };
 
 var export_data = false;
@@ -119,38 +120,45 @@ function onDisconnected(event, bleService, bleStateContainer, sensorCharacterist
 }
 
 function getACCState(acc_sensor_data){
-    const xz_margin_degrees = 7;
-    const yz_margin_degrees = 20;
+    const xz_margin_degrees = 50;
+    const yz_margin_degrees = 50;
     var sensor_state = ""
     var x = acc_sensor_data[acc_sensor_data.length - 1][0]
     var y = acc_sensor_data[acc_sensor_data.length - 1][1]
     var z = acc_sensor_data[acc_sensor_data.length - 1][2]
 
-    var xz_orientation_degrees = Math.atan2(x, z) * (180.0 / Math.PI);
-    var yz_orientation_degrees = Math.atan2(y, z) * (180.0 / Math.PI);
-
-    // Mostrar la orientación estimada
-    //console.log("Orientación XZ: " + xz_orientation_degrees + " grados");
-    //console.log("Orientación YZ: " + yz_orientation_degrees + " grados");
-    if (
-        (xz_orientation_degrees >= -85 - xz_margin_degrees && xz_orientation_degrees <= -85 + xz_margin_degrees)
-    ){
-        //console.log("Orientación XZ: " + xz_orientation_degrees + " grados");
-        //console.log("Orientación YZ: " + yz_orientation_degrees + " grados");
+    //var accelerationMagnitude = Math.sqrt(x * x + y * y + z * z);
+    //var accRateOfChange = Math.abs((x + y + z) / 3); // Promedio de las lecturas
+    
+    var xz_orientation_degrees = Math.atan(y/Math.sqrt(x*x+z*z)) * (180.0 / Math.PI);
+    var yz_orientation_degrees = Math.atan(x/Math.sqrt(y*y+z*z)) * (180.0 / Math.PI);
+    
+    if (Math.abs(xz_orientation_degrees - 0) <= xz_margin_degrees &&
+    Math.abs(yz_orientation_degrees - (-90)) <= yz_margin_degrees) {
         var sensor_state = "Base"
     }
-    else if (
-        (yz_orientation_degrees >= 90 - yz_margin_degrees && yz_orientation_degrees <= 90 + yz_margin_degrees)
-    ){
+    else if (Math.abs(xz_orientation_degrees - 90) <= xz_margin_degrees &&
+    Math.abs(yz_orientation_degrees - 0) <= yz_margin_degrees) {
         var sensor_state = "Boton hacia abajo"
     }
     else{
         var sensor_state = "En movimiento o no definida"
     }
 
-    //EVITAR CUANDO ESTEN ESTATICOS (VER VALORES INICIALES)
     //CALIBRAR??
+    //console.log(sensor_state, xz_orientation_degrees.toFixed(2), yz_orientation_degrees.toFixed(2))
+    
+    //return [sensor_state, accelerationMagnitude, accRateOfChange]
     return sensor_state
+}
+
+function getGYRState(gyr_sensor_data){
+    var x = gyr_sensor_data[gyr_sensor_data.length - 1][0]
+    var y = gyr_sensor_data[gyr_sensor_data.length - 1][1]
+    var z = gyr_sensor_data[gyr_sensor_data.length - 1][2]
+    var angularVelocityMagnitude = Math.sqrt(x * x + y * y + z * z);
+    var gyroRateOfChange = Math.abs((x + y + z) / 3); // Promedio de las lecturas
+    return [angularVelocityMagnitude, gyroRateOfChange]
 }
 
 async function handleCharacteristicChange(event, timestampContainer, lastAccContainer, lastGyrContainer) {
@@ -180,28 +188,52 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
             dataView.getFloat32(offset + 24, true)
         ];
 
-        // Almacenar los datos en matrices temporales
         accDataArray.push(accData);
         gyrDataArray.push(gyrData);
+
     }
+    //var gyroState = getGYRState(gyrDataArray);
+
+    //var yxDiff = Math.abs(accData[1] - accData[0])
+    //var yzDiff = Math.abs(accData[1] - accData[2])
+    //if (board_id == 3 && buttonStates[1] == false && buttonStates[4] == false){
+    //    console.log("yx", yxDiff, "yz", yzDiff, "y", (accData[1] - 9.8))
+    //}
+    var accState = getACCState(accDataArray)
     /*
     if (
-        board_id == 2 && buttonStates[1] == false &&
-        accDataArray[accDataArray.length - 1][1] < 8 && getACCState(accDataArray) != "Base"
-    ){  
-        console.log(gyrDataArray[gyrDataArray.length - 1])
-        console.log("3 Gemelo Izquierdo Y: ", accDataArray[accDataArray.length - 1][1])
+        board_id == 3 &&
+        buttonStates["motorButton1"] == false && buttonStates["motorButton4"] == false &&
+        (yxDiff <= 8 || yxDiff >= 15) &&
+        (yzDiff <= 7 || yzDiff >= 10) &&
+        ((accData[1] - 9.8) < -2) || ((accData[1] - 9.8) > 8)
+    ){
         toggleMotorButton("motorButton1", bleServer[0], bleServiceFound[0], motorCharacteristics[0])
-        console.log("Activate 1 Muslo Izquierdo", accDataArray[accDataArray.length - 1][1] < 8)
+        toggleMotorButton("motorButton4", bleServer[3], bleServiceFound[3], motorCharacteristics[3])
+        console.log("TALON IZQ", accData[1] - 9.8, accState, buttonStates["motorButton1"], buttonStates["motorButton4"])
     }
-    else{
-        console.log(
-            "gyrDataArray", gyrDataArray[gyrDataArray.length - 1],
-            "acc_data Y", accDataArray[accDataArray.length - 1][1],
-            "ESTADO", getACCState(accDataArray)
-        )
+    else if (
+        board_id == 4 && 
+        buttonStates["motorButton2"] == false && buttonStates["motorButton3"] == false &&
+        (yxDiff <= 8 || yxDiff >= 15) &&
+        (yzDiff <= 7 || yzDiff >= 10) &&
+        ((accData[1] - 9.8) < -2) || ((accData[1] - 9.8) > 8)
+    ){
+        toggleMotorButton("motorButton2", bleServer[1], bleServiceFound[1], motorCharacteristics[1])
+        toggleMotorButton("motorButton3", bleServer[2], bleServiceFound[2], motorCharacteristics[2])
+        console.log("TALON DER", accData[1] - 9.8, accState, buttonStates["motorButton2"], buttonStates["motorButton3"])
     }
     */
+
+
+    function manejarPresionTecla(event, t) {
+        // Agregar el código de la tecla al arreglo
+        talon.push(t);
+        pressed = false
+        
+        // Imprimir el arreglo actualizado en la consola
+        console.log("Teclas presionadas:", talon);
+    }
     
     // Si es necesario, almacenar los datos para exportación
     if (export_data) {
@@ -209,12 +241,21 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
             acc_data[board_id].push(accDataArray[i]);
             gyr_data[board_id].push(gyrDataArray[i]);
         }
-        data_counters[board_id-1]++;
+        // Agregar un event listener para el evento 'keydown'
+        if (pressed != true){
+            pressed = true
+            document.addEventListener("keydown", function(event) {
+                // Llama a la función manejarPresionTecla solo cuando ocurra el evento
+                manejarPresionTecla(event, data_counters[0]);
+            });
+        }
+        data_counters[board_id-1] = data_counters[board_id-1] + 16
         //console.log(data_counters)
         //1 Muslo Izquierdo
         //2 Muslo Derecho
         //3 Gemelo Izquierdo
         //4 Gemelo Derecho
+        /*
         if (
             board_id == 3 && buttonStates[1] == false &&
             acc_data[3][acc_data[3].length - 1][1] < 9 && getACCState(acc_data[3]) != "Base"
@@ -230,14 +271,6 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
             //console.log("4 Gemelo Derecho Y: ", acc_data[4][acc_data[4].length - 1][1])
             toggleMotorButton("motorButton2", bleServer[1], bleServiceFound[1], motorCharacteristics[1])
             //console.log("Activate 2 Muslo Derecho", acc_data[4][acc_data[4].length - 1][1] < 7)
-        }
-        /*
-        else{
-            console.log(
-                "buttonStates[1]", buttonStates[1],
-                "acc_data Y", acc_data[3][acc_data[3].length - 1][1],
-                "ESTADO", getACCState(acc_data[3])
-            )
         }
         */
     }
@@ -474,7 +507,6 @@ function writeOnCharacteristic(bleServer, bleServiceFound, c) {
 
 function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteristic) {
     var button = document.getElementById(buttonId);
-    writeOnCharacteristic(bleServer, bleServiceFound, motorCharacteristic)
     if (button) {
         if (button.classList.contains("on")) {
             button.innerText = "Activar motor";
@@ -482,11 +514,12 @@ function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteri
             button.classList.add("off");
             buttonStates[buttonId] = false;
         } else {
+            writeOnCharacteristic(bleServer, bleServiceFound, motorCharacteristic)
             button.innerText = "Vibrando...";
             button.classList.remove("off");
             button.classList.add("on");
             buttonStates[buttonId] = true;
-            console.log("BOTON PRENDIDO MOTOR", buttonId, buttonStates[buttonId])
+            //console.log("BOTON PRENDIDO MOTOR", buttonId, buttonStates[buttonId], motorActivated[0])
             button.disabled = true;
             console.log(buttonId, "Vibrando...")
             setTimeout(() => {
@@ -529,8 +562,8 @@ function getMinDataLength(data) {
     let length2 = data[2].length;
     let length3 = data[3].length;
     let length4 = data[4].length;
-    //let minLength = Math.min(length1, length2, length3, length4);
     let minLength = Math.min(length1, length2, length3, length4);
+    //let minLength = Math.min(length1, length3);
     console.log(length1, length2, length3, length4)
     return minLength
 }
@@ -595,6 +628,7 @@ function downloadCSV(trialName) {
         "StartTime:,"+getFullDateTime(initTimestamp)+",,,,,,,,,,,,,,,,,",
         "EndTime:,"+getFullDateTime(endTimestamp)+",,,,,,,,,,,,,,,,,",
         "TrialDuration:,"+getTimeDiff(trialDuration)+",,,,,,,,,,,,,,,,,",
+        "Talon:," + Array.from(new Set(talon)).join(","),
         "",
     ];
 
