@@ -129,6 +129,11 @@ h2 {
     background-color: green;
     color: white;
 }
+
+.counter-button{
+    background-color: rgb(0, 20, 150);
+}
+
 .center{
     
     text-align: center;

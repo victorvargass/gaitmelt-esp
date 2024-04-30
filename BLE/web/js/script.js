@@ -227,11 +227,8 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
 
 
     function manejarPresionTecla(event, t) {
-        // Agregar el código de la tecla al arreglo
         talon.push(t);
-        pressed = false
-        
-        // Imprimir el arreglo actualizado en la consola
+        pressed = false;
         console.log("Teclas presionadas:", talon);
     }
     
@@ -244,6 +241,9 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
         // Agregar un event listener para el evento 'keydown'
         if (pressed != true){
             pressed = true
+            document.getElementById("talonCounterButton").addEventListener("click", function (event) {
+                manejarPresionTecla(event, data_counters[0]);
+            });
             document.addEventListener("keydown", function(event) {
                 // Llama a la función manejarPresionTecla solo cuando ocurra el evento
                 manejarPresionTecla(event, data_counters[0]);
