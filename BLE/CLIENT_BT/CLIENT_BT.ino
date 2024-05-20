@@ -154,11 +154,14 @@ void loop() {
 
   if (deviceConnected) {
     if (structsRead < NUM_STRUCTS_TO_SEND) {
+      unsigned long startTime_mpuRead = micros();
       // Leer los datos de la MPU solo si no hemos leído suficientes estructuras aún
       readMPUData(&mpuReadings[structsRead]);
       structsRead++;
+      Serial.printf("\r\nMPU read delay: [%lu]\r\n",micros()-startTime_mpuRead);
     }
     if (structsRead >= NUM_STRUCTS_TO_SEND) {
+      unsigned long startTime_bleSend = micros();
       uint8_t buffer[sizeof(struct_message_mpu) * NUM_STRUCTS_TO_SEND];
       packStructsToBytes(mpuReadings, buffer, NUM_STRUCTS_TO_SEND);
       pMPUCharacteristic->setValue(buffer, sizeof(buffer));
@@ -166,6 +169,7 @@ void loop() {
       // Reiniciar el contador de estructuras leídas
       structsRead = 0;
       delay(10); //Para evitar la congestion de BT
+      Serial.printf("\r\nBLE send delay: [%lu]\r\n",micros()-startTime_bleSend);
     }
   }
   // Desconectando
