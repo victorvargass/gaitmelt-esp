@@ -6,7 +6,6 @@
 
 Adafruit_MPU6050 mpu;
 
-unsigned int readingMPUId = 0;
 const long interval = 10;
 
 
@@ -19,7 +18,6 @@ struct struct_message_mpu {
   float gyr_x;
   float gyr_y;
   float gyr_z;
-  float readingId;
   unsigned long timestamp;
 };
 
@@ -45,6 +43,7 @@ void packStructsToBytes(struct_message_mpu *data, uint8_t *buffer, int num_struc
 void readMPUData(){
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
+  unsigned long timestamp = millis();
 
   thisMPUReadings.board_id = BOARD_ID;
   thisMPUReadings.acc_x = a.acceleration.x;
@@ -53,7 +52,7 @@ void readMPUData(){
   thisMPUReadings.gyr_x = g.gyro.x;
   thisMPUReadings.gyr_y = g.gyro.y;
   thisMPUReadings.gyr_z = g.gyro.z;
-  thisMPUReadings.readingId = readingMPUId++;
+  thisMPUReadings.timestamp = timestamp;
 }
 
 
