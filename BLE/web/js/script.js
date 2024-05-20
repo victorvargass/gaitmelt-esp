@@ -87,7 +87,7 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
     const receivedDataBuffer = event.target.value
     const dataView = new DataView(receivedDataBuffer.buffer);
     const structSize = 32;
-
+    
     // Variables para acumular los datos
     const accDataArray = [];
     const gyrDataArray = [];
@@ -117,7 +117,7 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
             // Almacenar los datos en los arreglos correspondientes
             accDataArray.push(accData);
             gyrDataArray.push(gyrData);
-
+            console.log('tamaño del paquete: ', receivedDataBuffer.byteLength);
             console.log(`Datos recibidos para el board ${board_id}:`);
             console.log('Timestamp:', Number(timestamp));
         }
@@ -182,6 +182,8 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
                 console.log("TIME AFTER", current_timestamp)
                 const timeDifference = current_timestamp - init_timestamp;
                 console.log('Diferencia de tiempo:', timeDifference, 'milisegundos');
+                
+                
                 init_timestamp = current_timestamp;
                 console.log("TIME BEFORE", init_timestamp)
             });
