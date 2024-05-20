@@ -1,4 +1,4 @@
-import { isWebBluetoothEnabled, getDateTime, getFullDateTime, getTimeDiff } from './utils.js';
+import { isWebBluetoothEnabled, getDateTime } from './utils.js';
 
 //Define BLE Device Specs
 var deviceName = 'GaitMelt Device ';
@@ -24,9 +24,6 @@ const motorCharacteristics = [
     '60d025dd-417c-4ee6-8ffb-2993d99fb501'
 ];
 
-var talon = [];
-var pressed = false;
-
 // DOM Elements
 const connectButtons = [];
 const motorButtons = [];
@@ -37,48 +34,12 @@ const timestampContainers = [];
 const lastAccContainers = [];
 const lastGyrContainers = [];
 
-var connectedDevices = 0;
-var initTimestamp = 0;
-var endTimestamp = 0;
-
-const trialContainer = document.getElementById('trialContainer')
-const timerDisplay = document.getElementById('timerDisplay')
-
-var acc_data = {
-    1: [[], [], []],
-    2: [[], [], []],
-    3: [[], [], []],
-    4: [[], [], []],
-};
-
-var gyr_data = {
-    1: [[], [], []],
-    2: [[], [], []],
-    3: [[], [], []],
-    4: [[], [], []],
-};
-
-var data_counters = [0, 0, 0, 0]
-
 var buttonStates = {
     "motorButton1": false,
     "motorButton2": false,
     "motorButton3": false,
     "motorButton4": false,
 };
-
-var export_data = false;
-
-
-let timerInterval; // Variable para almacenar el intervalo del temporizador
-let startTime; // Variable para almacenar el tiempo de inicio del contador
-
-const minutesDisplay = document.getElementById('minutes');
-const secondsDisplay = document.getElementById('seconds');
-
-//var init_times = [];
-//var end_times = [];
-//var c = 0;
 
 for (let i = 1; i <= 4; i++) {
     connectButtons.push(document.getElementById(`connectBleButton${i}`));
@@ -95,6 +56,9 @@ var bleServer = []
 var bleServiceFound = [];
 var sensorCharacteristicFound = [];
 
+
+var init_timestamp = Date.now();
+console.log("INIT TIME", init_timestamp);
 
 for (let i = 0; i < connectButtons.length; i++) {
     connectButtons[i].addEventListener('click', () => {
@@ -119,160 +83,44 @@ function onDisconnected(event, bleService, bleStateContainer, sensorCharacterist
         bleService, bleStateContainer, sensorCharacteristic, timestampContainer, lastAccContainer, lastGyrContainer, index)
 }
 
-function getACCState(acc_sensor_data){
-    const xz_margin_degrees = 50;
-    const yz_margin_degrees = 50;
-    var sensor_state = ""
-    var x = acc_sensor_data[acc_sensor_data.length - 1][0]
-    var y = acc_sensor_data[acc_sensor_data.length - 1][1]
-    var z = acc_sensor_data[acc_sensor_data.length - 1][2]
-
-    //var accelerationMagnitude = Math.sqrt(x * x + y * y + z * z);
-    //var accRateOfChange = Math.abs((x + y + z) / 3); // Promedio de las lecturas
-    
-    var xz_orientation_degrees = Math.atan(y/Math.sqrt(x*x+z*z)) * (180.0 / Math.PI);
-    var yz_orientation_degrees = Math.atan(x/Math.sqrt(y*y+z*z)) * (180.0 / Math.PI);
-    
-    if (Math.abs(xz_orientation_degrees - 0) <= xz_margin_degrees &&
-    Math.abs(yz_orientation_degrees - (-90)) <= yz_margin_degrees) {
-        var sensor_state = "Base"
-    }
-    else if (Math.abs(xz_orientation_degrees - 90) <= xz_margin_degrees &&
-    Math.abs(yz_orientation_degrees - 0) <= yz_margin_degrees) {
-        var sensor_state = "Boton hacia abajo"
-    }
-    else{
-        var sensor_state = "En movimiento o no definida"
-    }
-
-    //CALIBRAR??
-    //console.log(sensor_state, xz_orientation_degrees.toFixed(2), yz_orientation_degrees.toFixed(2))
-    
-    //return [sensor_state, accelerationMagnitude, accRateOfChange]
-    return sensor_state
-}
-
-function getGYRState(gyr_sensor_data){
-    var x = gyr_sensor_data[gyr_sensor_data.length - 1][0]
-    var y = gyr_sensor_data[gyr_sensor_data.length - 1][1]
-    var z = gyr_sensor_data[gyr_sensor_data.length - 1][2]
-    var angularVelocityMagnitude = Math.sqrt(x * x + y * y + z * z);
-    var gyroRateOfChange = Math.abs((x + y + z) / 3); // Promedio de las lecturas
-    return [angularVelocityMagnitude, gyroRateOfChange]
-}
-
 async function handleCharacteristicChange(event, timestampContainer, lastAccContainer, lastGyrContainer) {
-    const dataView = new DataView(event.target.value.buffer);
-
-    // Calcular el offset una vez fuera del bucle
-    const offsetMultiplier = 32;
-
+    const receivedDataBuffer = event.target.value
+    const dataView = new DataView(receivedDataBuffer.buffer);
+    const structSize = 32;
+    
     // Variables para acumular los datos
     const accDataArray = [];
     const gyrDataArray = [];
-    let board_id; // Declarar board_id fuera del bucle
-
-    for (let i = 0; i < 16; i++) {
-        const offset = i * offsetMultiplier;
-
-        // Extraer los datos de la estructura
-        board_id = dataView.getInt32(offset, true); // Asignar valor a board_id dentro del bucle
-        const accData = [
-            dataView.getFloat32(offset + 4, true),
-            dataView.getFloat32(offset + 8, true),
-            dataView.getFloat32(offset + 12, true)
-        ];
-        const gyrData = [
-            dataView.getFloat32(offset + 16, true),
-            dataView.getFloat32(offset + 20, true),
-            dataView.getFloat32(offset + 24, true)
-        ];
-
-        accDataArray.push(accData);
-        gyrDataArray.push(gyrData);
-
-    }
-    //var gyroState = getGYRState(gyrDataArray);
-
-    //var yxDiff = Math.abs(accData[1] - accData[0])
-    //var yzDiff = Math.abs(accData[1] - accData[2])
-    //if (board_id == 3 && buttonStates[1] == false && buttonStates[4] == false){
-    //    console.log("yx", yxDiff, "yz", yzDiff, "y", (accData[1] - 9.8))
-    //}
-    var accState = getACCState(accDataArray)
-    /*
-    if (
-        board_id == 3 &&
-        buttonStates["motorButton1"] == false && buttonStates["motorButton4"] == false &&
-        (yxDiff <= 8 || yxDiff >= 15) &&
-        (yzDiff <= 7 || yzDiff >= 10) &&
-        ((accData[1] - 9.8) < -2) || ((accData[1] - 9.8) > 8)
-    ){
-        toggleMotorButton("motorButton1", bleServer[0], bleServiceFound[0], motorCharacteristics[0])
-        toggleMotorButton("motorButton4", bleServer[3], bleServiceFound[3], motorCharacteristics[3])
-        console.log("TALON IZQ", accData[1] - 9.8, accState, buttonStates["motorButton1"], buttonStates["motorButton4"])
-    }
-    else if (
-        board_id == 4 && 
-        buttonStates["motorButton2"] == false && buttonStates["motorButton3"] == false &&
-        (yxDiff <= 8 || yxDiff >= 15) &&
-        (yzDiff <= 7 || yzDiff >= 10) &&
-        ((accData[1] - 9.8) < -2) || ((accData[1] - 9.8) > 8)
-    ){
-        toggleMotorButton("motorButton2", bleServer[1], bleServiceFound[1], motorCharacteristics[1])
-        toggleMotorButton("motorButton3", bleServer[2], bleServiceFound[2], motorCharacteristics[2])
-        console.log("TALON DER", accData[1] - 9.8, accState, buttonStates["motorButton2"], buttonStates["motorButton3"])
-    }
-    */
-
-
-    function manejarPresionTecla(event, t) {
-        talon.push(t);
-        pressed = false;
-        console.log("Teclas presionadas:", talon);
-    }
     
-    // Si es necesario, almacenar los datos para exportación
-    if (export_data) {
-        for (let i = 0; i < accDataArray.length; i++) {
-            acc_data[board_id].push(accDataArray[i]);
-            gyr_data[board_id].push(gyrDataArray[i]);
+    // Calcular la cantidad máxima de estructuras que podemos enviar antes de alcanzar el límite de 514 bytes
+    const maxStructures = Math.min(14, Math.floor(514 / structSize));
+
+    // Iterar sobre el buffer recibido
+    for (let i = 0; i < maxStructures; i++) {
+        const offset = i * structSize;
+        // Asegurarse de que el offset no exceda la longitud del buffer
+        if (offset + structSize <= receivedDataBuffer.byteLength) {
+            // Extraer los datos de la estructura
+            const board_id = dataView.getInt32(offset, true);
+            const accData = [
+                dataView.getFloat32(offset + 4, true),
+                dataView.getFloat32(offset + 8, true),
+                dataView.getFloat32(offset + 12, true)
+            ];
+            const gyrData = [
+                dataView.getFloat32(offset + 16, true),
+                dataView.getFloat32(offset + 20, true),
+                dataView.getFloat32(offset + 24, true)
+            ];
+            const timestamp = dataView.getFloat32(offset + 28, true); // Usar getBigUint64 para leer un valor de 64 bits (8 bytes) como un número entero grande sin signo
+
+            // Almacenar los datos en los arreglos correspondientes
+            accDataArray.push(accData);
+            gyrDataArray.push(gyrData);
+            console.log('tamaño del paquete: ', receivedDataBuffer.byteLength);
+            console.log(`Datos recibidos para el board ${board_id}:`);
+            console.log('Timestamp:', Number(timestamp));
         }
-        // Agregar un event listener para el evento 'keydown'
-        if (pressed != true){
-            pressed = true
-            document.getElementById("talonCounterButton").addEventListener("click", function (event) {
-                manejarPresionTecla(event, data_counters[0]);
-            });
-            document.addEventListener("keydown", function(event) {
-                // Llama a la función manejarPresionTecla solo cuando ocurra el evento
-                manejarPresionTecla(event, data_counters[0]);
-            });
-        }
-        data_counters[board_id-1] = data_counters[board_id-1] + 16
-        //console.log(data_counters)
-        //1 Muslo Izquierdo
-        //2 Muslo Derecho
-        //3 Gemelo Izquierdo
-        //4 Gemelo Derecho
-        /*
-        if (
-            board_id == 3 && buttonStates[1] == false &&
-            acc_data[3][acc_data[3].length - 1][1] < 9 && getACCState(acc_data[3]) != "Base"
-        ){
-            //console.log("3 Gemelo Izquierdo Y: ", acc_data[3][acc_data[3].length - 1][1])
-            toggleMotorButton("motorButton1", bleServer[0], bleServiceFound[0], motorCharacteristics[0])
-            //console.log("Activate 1 Muslo Izquierdo", acc_data[3][acc_data[3].length - 1][1] < 8)
-        }
-        if (
-            board_id == 4 && buttonStates[2] == false &&
-            acc_data[4][acc_data[4].length - 1][1] < 9 && getACCState(acc_data[4]) != "Base"
-        ){
-            //console.log("4 Gemelo Derecho Y: ", acc_data[4][acc_data[4].length - 1][1])
-            toggleMotorButton("motorButton2", bleServer[1], bleServiceFound[1], motorCharacteristics[1])
-            //console.log("Activate 2 Muslo Derecho", acc_data[4][acc_data[4].length - 1][1] < 7)
-        }
-        */
     }
 
     // Actualizar el contenido del contenedor de datos una vez fuera del bucle
@@ -329,15 +177,15 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             sensorCharacteristicFound[index] = characteristic;
             
             characteristic.addEventListener('characteristicvaluechanged', async function (event) {
-                //var t = new Date().getTime()
-                //init_times.push(t)
                 await handleCharacteristicChange(event, timestampContainer, lastAccContainer, lastGyrContainer);
-                //t = new Date().getTime()
-                //end_times.push(t)
-                //console.log("timestamps", init_times[c], end_times[c-1])
-                //console.log("diff ms", init_times[c] - end_times[c-1])
-                //console.log("freq", 1000 / (init_times[c] - end_times[c-1]) )
-                //c++;
+                var current_timestamp = Date.now();
+                console.log("TIME AFTER", current_timestamp)
+                const timeDifference = current_timestamp - init_timestamp;
+                console.log('Diferencia de tiempo:', timeDifference, 'milisegundos');
+                
+                
+                init_timestamp = current_timestamp;
+                console.log("TIME BEFORE", init_timestamp)
             });
             characteristic.startNotifications();
             console.log("Notifications Started.");
@@ -354,12 +202,6 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
             lastValues.classList.add("connected");
             timestamp_p.classList.remove("disconnected");
             timestamp_p.classList.add("connected");
-            connectedDevices++;
-            console.log("Number of connected devices: ", connectedDevices)
-            //if (connectedDevices == 4){
-            if ((connectedDevices == 4) && (trialContainer.classList.contains('nodata'))){
-                trialContainer.classList.remove("nodata");
-            };
             return characteristic.readValue();
         })
         .then(value => {
@@ -369,7 +211,6 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
         })
         .catch(error => {
             console.log('Error: ', error);
-            /*
             connectButton.innerText = "Conectar"
             connectButton.classList.remove("connected");
             connectButton.classList.remove("connecting");
@@ -383,7 +224,6 @@ function connectToDevice(bleService, bleStateContainer, sensorCharacteristic, ti
 
             bleStateContainer.innerHTML = "Error de conexión. Vuelve a intentarlo";
             bleStateContainer.style.color = "#d13a30";
-            */
         })
 }
 
@@ -417,8 +257,6 @@ function disconnectDevice(bleStateContainer, bleServer, sensorCharacteristicFoun
 
                         bleStateContainer.innerHTML = "Desconectado";
                         bleStateContainer.style.color = "#d13a30";
-
-                        connectedDevices--;
                     })
                     .catch(error => {
                         console.log("An error occurred:", error);
@@ -433,58 +271,6 @@ function disconnectDevice(bleStateContainer, bleServer, sensorCharacteristicFoun
         // Throw an error if Bluetooth is not connected
         console.error("Bluetooth is not connected.");
         window.alert("Bluetooth is not connected.")
-    }
-}
-
-// Función para actualizar el tiempo transcurrido
-function updateTimer() {
-    const currentTime = new Date().getTime();
-    const elapsedTime = currentTime - startTime;
-
-    // Calcular minutos y segundos
-    const minutes = Math.floor(elapsedTime / (1000 * 60));
-    const seconds = Math.floor((elapsedTime % (1000 * 60)) / 1000);
-
-    // Mostrar tiempo en el HTML
-    minutesDisplay.textContent = padZero(minutes);
-    secondsDisplay.textContent = padZero(seconds);
-}
-
-// Función auxiliar para agregar ceros a la izquierda si es necesario
-function padZero(num) {
-    return num < 10 ? '0' + num : num;
-}
-
-function toggleTrialButton(buttonId) {
-    var button = document.getElementById(buttonId);
-    if (button) {
-        if (button.classList.contains("on")) {
-            let confirmacion = confirm("¿Estás seguro de que deseas detener el ensayo?");
-            if (confirmacion) {
-                var trialName = document.getElementById("trialName");
-                button.innerText = "Iniciar ensayo";
-                button.classList.remove("on");
-                button.classList.add("off");
-                buttonStates[buttonId] = false;
-                downloadCSV(trialName.value)
-                timerDisplay.classList.add("stop")
-                trialName.value = "";
-                clearInterval(timerInterval);
-            }
-        } else {
-            initTimestamp = new Date().getTime();
-
-            button.innerText = "Detener ensayo";
-            button.classList.remove("off");
-            button.classList.add("on");
-            buttonStates[buttonId] = true;
-            export_data = true
-            timerDisplay.classList.remove("stop")
-            minutesDisplay.textContent = "00";
-            secondsDisplay.textContent = "00";
-            startTime = new Date().getTime();
-            timerInterval = setInterval(updateTimer, 1000);
-        }
     }
 }
 
@@ -519,7 +305,6 @@ function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteri
             button.classList.remove("off");
             button.classList.add("on");
             buttonStates[buttonId] = true;
-            //console.log("BOTON PRENDIDO MOTOR", buttonId, buttonStates[buttonId], motorActivated[0])
             button.disabled = true;
             console.log(buttonId, "Vibrando...")
             setTimeout(() => {
@@ -534,127 +319,10 @@ function toggleMotorButton(buttonId, bleServer, bleServiceFound, motorCharacteri
     }
 }
 
-document.getElementById("trialButton").addEventListener("click", function () {
-    toggleTrialButton("trialButton");
-});
-
-
 for (var i = 1; i <= 4; i++) {
     (function (i) {
         document.getElementById("motorButton" + i).addEventListener("click", function () {
             toggleMotorButton("motorButton" + i, bleServer[i - 1], bleServiceFound[i - 1], motorCharacteristics[i - 1]);
         });
     })(i);
-}
-
-function deleteChartData(data) {
-    for (let key in data) {
-        if (data.hasOwnProperty(key)) {
-            data[key] = data[key].slice(3);
-        }
-    }
-    return data;
-}
-
-
-function getMinDataLength(data) {
-    let length1 = data[1].length;
-    let length2 = data[2].length;
-    let length3 = data[3].length;
-    let length4 = data[4].length;
-    let minLength = Math.min(length1, length2, length3, length4);
-    //let minLength = Math.min(length1, length3);
-    console.log(length1, length2, length3, length4)
-    return minLength
-}
-
-function downloadCSV(trialName) {
-    console.log("BEFORE BEFORE", getMinDataLength(acc_data), acc_data)
-    acc_data = deleteChartData(acc_data);
-    gyr_data = deleteChartData(gyr_data);
-    var data_number = getMinDataLength(acc_data);
-
-    endTimestamp = new Date().getTime();
-    var trialDuration = endTimestamp - initTimestamp;
-    var frequency  = (data_number - 1)/trialDuration
-    const timeBetweenPointsMs = 1 / frequency;
-    const timeBetweenPointsSec = timeBetweenPointsMs / 1000;
-
-    var time_data = Array.from({ length: data_number }, (_, index) => (index * timeBetweenPointsSec).toFixed(3));
-    console.log("BEFORE", getMinDataLength(acc_data), acc_data)
-    for (let i = 1; i <= 4; i++) {
-        acc_data[i].slice(-data_number);
-        gyr_data[i].slice(-data_number);
-    }
-    console.log("AFTER", getMinDataLength(acc_data), acc_data)
-    var combined_data = time_data.map(function (t, index) {
-        if (acc_data[1][index].length === 3) {
-            return [
-                index,
-                t,
-                acc_data[1][index][0], acc_data[1][index][1], acc_data[1][index][2],
-                gyr_data[1][index][0], gyr_data[1][index][1], gyr_data[1][index][2],
-                acc_data[2][index][0], acc_data[2][index][1], acc_data[2][index][2],
-                gyr_data[2][index][0], gyr_data[2][index][1], gyr_data[2][index][2],
-                acc_data[3][index][0], acc_data[3][index][1], acc_data[3][index][2],
-                gyr_data[3][index][0], gyr_data[3][index][1], gyr_data[3][index][2],
-                acc_data[4][index][0], acc_data[4][index][1], acc_data[4][index][2],
-                gyr_data[4][index][0], gyr_data[4][index][1], gyr_data[4][index][2],
-            ];
-        } else {
-            return undefined;
-        }
-    });
-
-    combined_data = combined_data.filter(function (element) {
-        return element !== undefined;
-    });
-
-    export_data = false
-
-    var headers = [
-        "index",
-        "time",
-        "acc_data_x_1", "acc_data_y_1", "acc_data_z_1", "gyr_data_x_1", "gyr_data_y_1", "gyr_data_z_1",
-        "acc_data_x_2", "acc_data_y_2", "acc_data_z_2", "gyr_data_x_2", "gyr_data_y_2", "gyr_data_z_2",
-        "acc_data_x_3", "acc_data_y_3", "acc_data_z_3", "gyr_data_x_3", "gyr_data_y_3", "gyr_data_z_3",
-        "acc_data_x_4", "acc_data_y_4", "acc_data_z_4", "gyr_data_x_4", "gyr_data_y_4", "gyr_data_z_4",
-    ];
-    combined_data.unshift(headers);
-
-    // Datos adicionales
-    var additionalData = [
-        "TrialName:,"+trialName+",,,,,,,,,,,,,,,,,",
-        "StartTime:,"+getFullDateTime(initTimestamp)+",,,,,,,,,,,,,,,,,",
-        "EndTime:,"+getFullDateTime(endTimestamp)+",,,,,,,,,,,,,,,,,",
-        "TrialDuration:,"+getTimeDiff(trialDuration)+",,,,,,,,,,,,,,,,,",
-        "Talon:," + Array.from(new Set(talon)).join(","),
-        "",
-    ];
-
-    // Combinar los datos de la cabecera y los datos adicionales
-    var headersAndData = additionalData.concat(combined_data);
-    var csvContent = "data:text/csv;charset=utf-8," + headersAndData.join("\n");
-
-    var encodedUri = encodeURI(csvContent);
-    var link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "gaitmelt_trial_" + trialName+ ".csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    acc_data = {
-        1: [[], [], []],
-        2: [[], [], []],
-        3: [[], [], []],
-        4: [[], [], []],
-    };
-
-    gyr_data = {
-        1: [[], [], []],
-        2: [[], [], []],
-        3: [[], [], []],
-        4: [[], [], []],
-    };
 }
