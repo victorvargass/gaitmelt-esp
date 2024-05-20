@@ -112,7 +112,7 @@ async function handleCharacteristicChange(event, timestampContainer, lastAccCont
                 dataView.getFloat32(offset + 20, true),
                 dataView.getFloat32(offset + 24, true)
             ];
-            const timestamp = dataView.getBigUint64(offset + 28, true); // Usar getBigUint64 para leer un valor de 64 bits (8 bytes) como un número entero grande sin signo
+            const timestamp = dataView.getFloat32(offset + 28, true); // Usar getBigUint64 para leer un valor de 64 bits (8 bytes) como un número entero grande sin signo
 
             // Almacenar los datos en los arreglos correspondientes
             accDataArray.push(accData);
