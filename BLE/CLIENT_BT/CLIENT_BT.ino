@@ -23,7 +23,6 @@ bool oldDeviceConnected = false;
 
 Adafruit_MPU6050 mpu;
 float vibrationDuration = 100;
-unsigned int readingMPUId = 0;
 
 // Struct de datos de MPU
 struct struct_message_mpu {
@@ -34,7 +33,6 @@ struct struct_message_mpu {
   float gyr_x;
   float gyr_y;
   float gyr_z;
-  float readingId;
   unsigned long timestamp;
 };
 
@@ -63,7 +61,6 @@ void readMPUData(struct_message_mpu *data) {
   data->gyr_x = g.gyro.x;
   data->gyr_y = g.gyro.y;
   data->gyr_z = g.gyro.z;
-  data->readingId = readingMPUId++;
   data->timestamp = timestamp;
 }
 
@@ -155,10 +152,13 @@ void loop() {
   if (deviceConnected) {
     if (structsRead < NUM_STRUCTS_TO_SEND) {
       // Leer los datos de la MPU solo si no hemos leído suficientes estructuras aún
+      Serial.println("BEFORE ONE READ");
       readMPUData(&mpuReadings[structsRead]);
+      Serial.println("AFTER ONE READ");
       structsRead++;
     }
     if (structsRead >= NUM_STRUCTS_TO_SEND) {
+      Serial.println("---------------BEFORE SEND---------------");
       uint8_t buffer[sizeof(struct_message_mpu) * NUM_STRUCTS_TO_SEND];
       packStructsToBytes(mpuReadings, buffer, NUM_STRUCTS_TO_SEND);
       pMPUCharacteristic->setValue(buffer, sizeof(buffer));
@@ -166,6 +166,7 @@ void loop() {
       // Reiniciar el contador de estructuras leídas
       structsRead = 0;
       delay(10); //Para evitar la congestion de BT
+      Serial.println("---------------AFTER SEND---------------");
     }
   }
   // Desconectando
