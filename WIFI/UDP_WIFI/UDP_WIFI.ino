@@ -14,9 +14,8 @@ String MOTORINBState = "off";
 
 Adafruit_MPU6050 mpu;
 float vibrationDuration = 100;
-const char* ntpServer1 = "pool.ntp.org";
-const char* ntpServer2 = "time.nist.gov";
-unsigned long epoch_timestamp;
+const char* ntpServer = "pool.ntp.org";
+unsigned long long epoch_timestamp;
 
 // Struct de datos de MPU
 struct struct_message_mpu {
@@ -27,19 +26,23 @@ struct struct_message_mpu {
   float gyr_x;
   float gyr_y;
   float gyr_z;
-  int timestamp;
+  unsigned long long timestamp;
 };
 
+unsigned long long getTimestampMillis() {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  unsigned long long milliseconds = (unsigned long long)(tv.tv_sec) * 1000ULL + (unsigned long long)(tv.tv_usec) / 1000ULL;
+  return milliseconds;
+}
 
-unsigned long get_epoch_timestamp() {
-  time_t now;
+void setupNTP() {
+  configTime(-10800, 0, ntpServer);
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
+  while (!getLocalTime(&timeinfo)) {
     Serial.println("Failed to obtain time");
-    return(0);
   }
-  time(&now);
-  return now;
+  Serial.println("Time synchronized");
 }
 
 //Inicio conexión MPU
@@ -53,7 +56,8 @@ void setupMPU() {
 // Leer datos MPU
 void readMPUData(struct_message_mpu *data) {
   sensors_event_t a, g, temp;
-  epoch_timestamp = get_epoch_timestamp();
+  epoch_timestamp = getTimestampMillis();
+
   mpu.getEvent(&a, &g, &temp);
   data->board_id = BOARD_ID;
   data->acc_x = a.acceleration.x;
@@ -114,7 +118,7 @@ void setup() {
   pinMode(MOTORINB, OUTPUT);
   setupMPU();
   setupWIFI();
-  configTime(-10800, 0, ntpServer1, ntpServer2);
+  setupNTP();
 }
 
 
