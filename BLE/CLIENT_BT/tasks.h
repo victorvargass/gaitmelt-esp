@@ -5,7 +5,7 @@ void vTaskReadMPUData(void *pvParameters){
   
   while(1){
 
-    
+    vTaskDelay( 10 / portTICK_PERIOD_MS);
     // notify changed value
     if (deviceConnected) {
       if (structsRead < NUM_STRUCTS_TO_SEND) {
@@ -26,6 +26,7 @@ void vTaskReadMPUData(void *pvParameters){
 
 void vTaskBLEHandler(void *pvParameters){
   while(1){
+      vTaskDelay( 10 / portTICK_PERIOD_MS);
       if(deviceConnected){
           // Solo enviar cuando hayamos leído suficientes estructuras
           if (structsRead >= NUM_STRUCTS_TO_SEND) {
