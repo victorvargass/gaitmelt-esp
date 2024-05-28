@@ -6,6 +6,7 @@
 #include "time.h"
 
 #define BOARD_ID 1 // BOARD_ID 1, 2, 3, 4
+#define LAST_IP_VALUE 18 // LAST_IP_VALUE 18, 19, 20, 21
 #define MOTORINA 26
 #define MOTORINB 25
 
@@ -81,7 +82,7 @@ const char* ssid = "MEPL"; // SSID
 const char* password = "5843728K"; // Contraseña
 
 WiFiUDP Udp;
-IPAddress local_IP(192, 168, 1, 18); // IP fija, cambiar para cada ESP
+IPAddress local_IP(192, 168, 1, LAST_IP_VALUE); // IP fija, cambiar para cada ESP
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 0, 0);
 IPAddress dns(8, 8, 8, 8);
