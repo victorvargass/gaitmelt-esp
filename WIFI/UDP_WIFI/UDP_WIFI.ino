@@ -148,7 +148,7 @@ void loop() {
     motorState = incomingPacket[0] == '1';
 
     if (motorState) {
-      Serial.println("Motor encendido");
+      Serial.println("Motor on");
       digitalWrite(MOTORINA, HIGH);
       digitalWrite(MOTORINB, LOW);
       motorOnTime = millis();
@@ -157,7 +157,7 @@ void loop() {
 
   // Verificar si el motor debe apagarse
   if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
-    Serial.println("Motor apagado");
+    Serial.println("Motor off");
     digitalWrite(MOTORINA, LOW);
     digitalWrite(MOTORINB, LOW);
     motorState = false;
