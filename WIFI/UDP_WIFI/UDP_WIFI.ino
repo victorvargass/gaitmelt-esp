@@ -81,7 +81,7 @@ const char* ssid = "MEPL"; // SSID
 const char* password = "5843728K"; // Contraseña
 
 WiFiUDP Udp;
-IPAddress local_IP(192, 168, 1, 184); // IP fija, cambiar para cada ESP
+IPAddress local_IP(192, 168, 1, 18); // IP fija, cambiar para cada ESP
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 0, 0);
 IPAddress dns(8, 8, 8, 8);
@@ -148,6 +148,7 @@ void loop() {
     motorState = incomingPacket[0] == '1';
 
     if (motorState) {
+      Serial.println("Motor encendido");
       digitalWrite(MOTORINA, HIGH);
       digitalWrite(MOTORINB, LOW);
       motorOnTime = millis();
@@ -156,13 +157,12 @@ void loop() {
 
   // Verificar si el motor debe apagarse
   if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
+    Serial.println("Motor apagado");
     digitalWrite(MOTORINA, LOW);
     digitalWrite(MOTORINB, LOW);
     motorState = false;
   }
 
-  Serial.print("Motor state: ");
-  Serial.println(motorState);
 
   delay(10);
 }
