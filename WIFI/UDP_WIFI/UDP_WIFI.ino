@@ -5,19 +5,17 @@
 #include <Adafruit_Sensor.h>
 #include "time.h"
 
-#define BOARD_ID 1 //BOARD_ID 1, 2, 3, 4
+#define BOARD_ID 1 // BOARD_ID 1, 2, 3, 4
+#define LAST_IP_VALUE 18 // LAST_IP_VALUE 18, 19, 20, 21
 #define MOTORINA 26
 #define MOTORINB 25
-
-String MOTORINAState = "off";
-String MOTORINBState = "off";
 
 Adafruit_MPU6050 mpu;
 float vibrationDuration = 100;
 const char* ntpServer = "pool.ntp.org";
 unsigned long long epoch_timestamp;
 
-// Struct de datos de MPU
+// Estructura de datos de MPU
 struct struct_message_mpu {
   int board_id;
   float acc_x;
@@ -29,6 +27,7 @@ struct struct_message_mpu {
   unsigned long long timestamp;
 };
 
+// Obtener la marca de tiempo en milisegundos
 unsigned long long getTimestampMillis() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
@@ -36,24 +35,26 @@ unsigned long long getTimestampMillis() {
   return milliseconds;
 }
 
+// Configuración del servidor NTP para sincronizar la hora
 void setupNTP() {
   configTime(-10800, 0, ntpServer);
   struct tm timeinfo;
   while (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
+    Serial.println("Failed to obtain time"); // Falló la obtención de la hora
   }
-  Serial.println("Time synchronized");
+  Serial.println("Time synchronized"); // Hora sincronizada
 }
 
-//Inicio conexión MPU
+// Inicio de conexión con el MPU6050
 void setupMPU() {
   if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip");
+    Serial.println("Failed to find MPU6050 chip"); // Falló la detección del chip MPU6050
     while (1);
   }
-  Serial.println("MPU6050 Found!");
+  Serial.println("MPU6050 Found!"); // MPU6050 detectado
 }
-// Leer datos MPU
+
+// Leer datos del MPU6050
 void readMPUData(struct_message_mpu *data) {
   sensors_event_t a, g, temp;
   epoch_timestamp = getTimestampMillis();
@@ -69,26 +70,26 @@ void readMPUData(struct_message_mpu *data) {
   data->timestamp = epoch_timestamp;
 }
 
-//Struct de datos de MPU
+// Estructura de datos de MPU
 struct_message_mpu mpuReadings;
 
-// the IP of the machine to which you send msgs - this should be the correct IP in most cases (see note in python code)
-#define CONSOLE_IP "192.168.1.18" //IP RECEIVER
+// IP de la máquina a la que envías mensajes - esta debe ser la IP correcta en la mayoría de los casos (ver nota en el código de Python)
+#define CONSOLE_IP "192.168.1.14" // IP del receptor
 #define CONSOLE_PORT 4210
 
-// Replace with your network credentials
-const char* ssid     = "MEPL"; //SSID
-const char* password = "5843728K"; //PASSWORD
-
-// Variable to store the HTTP request
-String header;
+// Reemplaza con tus credenciales de red
+const char* ssid = "MEPL"; // SSID
+const char* password = "5843728K"; // Contraseña
 
 WiFiUDP Udp;
-IPAddress local_IP(192, 168, 1, 184); //IP FIJA, CAMBIAR PARA CADA ESP
+IPAddress local_IP(192, 168, 1, LAST_IP_VALUE); // IP fija, cambiar para cada ESP
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 0, 0);
-IPAddress dns(8,8,8,8);
+IPAddress dns(8, 8, 8, 8);
 WebServer server(80);
+
+unsigned long motorOnTime = 0; // Marca de tiempo cuando el motor se enciende
+bool motorState = false; // Estado actual del motor
 
 void setupWIFI() {
   Serial.print("Connecting to ");
@@ -101,15 +102,16 @@ void setupWIFI() {
     retries++;
   }
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Failed to connect to WiFi");
+    Serial.println("Failed to connect to WiFi"); // Falló la conexión a WiFi
     return;
   }
   Serial.println("");
-  Serial.println("WiFi connected.");
+  Serial.println("WiFi connected."); // WiFi conectado
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
   server.begin();
+  Udp.begin(CONSOLE_PORT);
 }
 
 void setup() {
@@ -121,17 +123,47 @@ void setup() {
   setupNTP();
 }
 
-
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected. Reconnecting...");
+    Serial.println("WiFi disconnected. Reconnecting..."); // WiFi desconectado. Reconectando...
     setupWIFI();
   }
+
+  // Enviar datos del MPU
   readMPUData(&mpuReadings);
   uint8_t buffer[sizeof(mpuReadings)];
   memcpy(buffer, &mpuReadings, sizeof(mpuReadings));
   Udp.beginPacket(CONSOLE_IP, CONSOLE_PORT);
   Udp.write(buffer, sizeof(buffer));
   Udp.endPacket();
+
+  // Recibir paquete de control del motor
+  int packetSize = Udp.parsePacket();
+  if (packetSize) {
+    char incomingPacket[255];
+    int len = Udp.read(incomingPacket, 255);
+    if (len > 0) {
+      incomingPacket[len] = 0;
+    }
+    // Suponiendo que el paquete es un solo valor booleano
+    motorState = incomingPacket[0] == '1';
+
+    if (motorState) {
+      Serial.println("Motor on");
+      digitalWrite(MOTORINA, HIGH);
+      digitalWrite(MOTORINB, LOW);
+      motorOnTime = millis();
+    }
+  }
+
+  // Verificar si el motor debe apagarse
+  if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
+    Serial.println("Motor off");
+    digitalWrite(MOTORINA, LOW);
+    digitalWrite(MOTORINB, LOW);
+    motorState = false;
+  }
+
+
   delay(10);
 }
