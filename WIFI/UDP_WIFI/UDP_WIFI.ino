@@ -6,7 +6,6 @@
 #include "time.h"
 
 #define BOARD_ID 1 // BOARD_ID 1, 2, 3, 4
-#define LAST_IP_VALUE 18 // LAST_IP_VALUE 18, 19, 20, 21
 #define MOTORINA 26
 #define MOTORINB 25
 
@@ -74,18 +73,14 @@ void readMPUData(struct_message_mpu *data) {
 struct_message_mpu mpuReadings;
 
 // IP de la máquina a la que envías mensajes - esta debe ser la IP correcta en la mayoría de los casos (ver nota en el código de Python)
-#define CONSOLE_IP "192.168.1.14" // IP del receptor
+#define CONSOLE_IP "192.168.50.82" // IP del receptor
 #define CONSOLE_PORT 4210
 
 // Reemplaza con tus credenciales de red
-const char* ssid = "MEPL"; // SSID
-const char* password = "5843728K"; // Contraseña
+const char* ssid = "Gaitmelt"; // SSID
+const char* password = "Gaitmelt"; // Contraseña
 
 WiFiUDP Udp;
-IPAddress local_IP(192, 168, 1, LAST_IP_VALUE); // IP fija, cambiar para cada ESP
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 0, 0);
-IPAddress dns(8, 8, 8, 8);
 WebServer server(80);
 
 unsigned long motorOnTime = 0; // Marca de tiempo cuando el motor se enciende
@@ -120,7 +115,7 @@ void setup() {
   pinMode(MOTORINB, OUTPUT);
   setupMPU();
   setupWIFI();
-  setupNTP();
+  //setupNTP();
 }
 
 void loop() {
