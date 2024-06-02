@@ -11,8 +11,7 @@
 
 Adafruit_MPU6050 mpu;
 float vibrationDuration = 100;
-const char* ntpServer = "pool.ntp.org";
-unsigned long long epoch_timestamp;
+unsigned long startTime;
 
 // Estructura de datos de MPU
 struct struct_message_mpu {
@@ -23,26 +22,8 @@ struct struct_message_mpu {
   float gyr_x;
   float gyr_y;
   float gyr_z;
-  unsigned long long timestamp;
+  unsigned long timestamp;
 };
-
-// Obtener la marca de tiempo en milisegundos
-unsigned long long getTimestampMillis() {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  unsigned long long milliseconds = (unsigned long long)(tv.tv_sec) * 1000ULL + (unsigned long long)(tv.tv_usec) / 1000ULL;
-  return milliseconds;
-}
-
-// Configuración del servidor NTP para sincronizar la hora
-void setupNTP() {
-  configTime(-10800, 0, ntpServer);
-  struct tm timeinfo;
-  while (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time"); // Falló la obtención de la hora
-  }
-  Serial.println("Time synchronized"); // Hora sincronizada
-}
 
 // Inicio de conexión con el MPU6050
 void setupMPU() {
@@ -56,8 +37,10 @@ void setupMPU() {
 // Leer datos del MPU6050
 void readMPUData(struct_message_mpu *data) {
   sensors_event_t a, g, temp;
-  epoch_timestamp = getTimestampMillis();
-
+  
+  unsigned long currentTime = millis();  // Obtenemos el tiempo actual
+  unsigned long epoch_timestamp = currentTime - startTime;  // Calculamos el tiempo transcurrido desde la referencia
+  
   mpu.getEvent(&a, &g, &temp);
   data->board_id = BOARD_ID;
   data->acc_x = a.acceleration.x;
@@ -115,7 +98,7 @@ void setup() {
   pinMode(MOTORINB, OUTPUT);
   setupMPU();
   setupWIFI();
-  //setupNTP();
+  startTime = millis();
 }
 
 void loop() {
@@ -123,7 +106,7 @@ void loop() {
     Serial.println("WiFi disconnected. Reconnecting..."); // WiFi desconectado. Reconectando...
     setupWIFI();
   }
-
+  
   // Enviar datos del MPU
   readMPUData(&mpuReadings);
   uint8_t buffer[sizeof(mpuReadings)];
@@ -140,25 +123,28 @@ void loop() {
     if (len > 0) {
       incomingPacket[len] = 0;
     }
-    // Suponiendo que el paquete es un solo valor booleano
-    motorState = incomingPacket[0] == '1';
 
-    if (motorState) {
-      Serial.println("Motor on");
-      digitalWrite(MOTORINA, HIGH);
-      digitalWrite(MOTORINB, LOW);
-      motorOnTime = millis();
+    // Suponiendo que el paquete es un solo valor booleano o comando de reset
+    if (strcmp(incomingPacket, "reset") == 0) {
+      startTime = millis();  // Actualizamos el tiempo de referencia
+      Serial.println("Reiniciando el tiempo a cero.");
+    } else {
+      motorState = incomingPacket[0] == '1';
+
+      if (motorState) {
+        digitalWrite(MOTORINA, HIGH);
+        digitalWrite(MOTORINB, LOW);
+        motorOnTime = millis();
+      }
     }
   }
 
   // Verificar si el motor debe apagarse
   if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
-    Serial.println("Motor off");
     digitalWrite(MOTORINA, LOW);
     digitalWrite(MOTORINB, LOW);
     motorState = false;
   }
-
 
   delay(10);
 }
