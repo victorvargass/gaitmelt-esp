@@ -5,20 +5,22 @@ import csv
 import socket
 import struct
 import time
-
-NUM_ESPS = 4
+import concurrent.futures
+import os
 
 # Configuración
-LOCAL_UDP_IP = "192.168.1.14"
-ESP_IPS = ["192.168.1.18", "192.168.1.19", "192.168.1.20", "192.168.1.21"]
+LOCAL_UDP_IP = "192.168.50.82"
+ESP_IPS = ["192.168.50.11", "192.168.50.12"]
+
 SHARED_UDP_PORT = 4210
-NUM_ESPS = 4
-MAX_TIME_DIFF = 10  # Máxima diferencia de tiempo permitida (10 ms)
+NUM_ESPS = 2
+MAX_TIME_SYNC_DIFF = 8  # Máxima diferencia de tiempo permitida (10 ms)
+VIBRATION_TIME_DIFF = 0.8 # (800ms)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((LOCAL_UDP_IP, SHARED_UDP_PORT))
 
-struct_format = "i fff fff Q"
+struct_format = "i fff fff i"
 
 # Variables para la grabación de datos
 recording = False
@@ -26,12 +28,68 @@ recorded_data = []
 start_time = None
 buffers = [[] for _ in range(NUM_ESPS)]
 
+output_folder = "output_data/"
 csv_filename = "recorded_data.csv"
 
-vibration_times_3, vibration_times_4 = [], []
+vibration_times = []
 
 # Agregar un diccionario para rastrear el tiempo de la última vibración de cada ESP
-last_vibration_time = {i: 0 for i in range(NUM_ESPS)}
+last_vibration_time = 0
+
+vibration_time = 1000
+
+def send_esp_message(IP, message):
+    try:
+        sock.sendto(message.encode(), (IP, SHARED_UDP_PORT))
+        print(f"Send {message} to {IP}")
+    except Exception as e:
+        print(f"Error sending message {message} to {IP}: {e}")
+
+
+def sync_devices():
+    set_selected_motors_vibration_time([0, 1], vibration_time)
+    message = "reset"
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(send_esp_message, IP, message) for IP in ESP_IPS]
+        concurrent.futures.wait(futures)
+
+
+def all_motors_on():
+    message = "motor"
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(send_esp_message, IP, message) for IP in ESP_IPS]
+        concurrent.futures.wait(futures)
+
+def set_vibration_time(esp_id, vibration_time):
+    selected_ip = ESP_IPS[esp_id]
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(send_esp_message, selected_ip, str(vibration_time))
+        concurrent.futures.wait([future])
+
+def set_selected_motors_vibration_time(selected_motors, vibration_time):
+    selected_ips = [ESP_IPS[i] for i in selected_motors]
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(send_esp_message, IP, str(vibration_time)) for IP in selected_ips
+        ]
+        concurrent.futures.wait(futures)
+
+def motor_on(esp_id):
+    set_vibration_time(esp_id, vibration_time)
+    message = "motor"
+    selected_ip = ESP_IPS[esp_id]
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(send_esp_message, selected_ip, message)
+        concurrent.futures.wait([future])
+
+def activate_selected_motors(selected_motors):
+    message = "motor"
+    selected_ips = [ESP_IPS[i] for i in selected_motors]
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(send_esp_message, IP, message) for IP in selected_ips
+        ]
+        concurrent.futures.wait(futures)
 
 
 def update_thresholds(acc_y_threshold):
@@ -40,40 +98,29 @@ def update_thresholds(acc_y_threshold):
 
 
 # Configuración de los umbrales iniciales
-acc_y_threshold_value = 3
+acc_y_threshold_value = 7.5
 
 
-def analyze_event(esp_id, data):
+def analyze_event(data):
+    global last_vibration_time
     accState = get_acc_state(data)
     acc_y = data[2]
     current_time = time.time()
     if (
-        esp_id in [2, 3]
-        and accState == "Boton hacia abajo"
+        accState == "Boton hacia abajo"
         and ((acc_y - 9.8) > acc_y_threshold_value)
-        and current_time - last_vibration_time[esp_id] > 1
+        and current_time - last_vibration_time > VIBRATION_TIME_DIFF
     ):
-        print(f"{len(vibration_times_3)} {len(vibration_times_4)} - ESP {esp_id + 1}", "acc_y", (acc_y - 9.8), (acc_y))
+        print(
+            f"Salto {len(vibration_times)}",
+            "time diff", current_time - last_vibration_time,
+            "acc_y",
+            (acc_y - 9.8),
+        )
         print("------------------------------------------")
-        last_vibration_time[esp_id] = current_time
-        if esp_id == 2:
-            vibration_times_3.append(data[7])
-            send_control_signal(0, "1")  # '1' para activar el motor
-            send_control_signal(3, "1")
-        elif esp_id == 3:
-            vibration_times_4.append(data[7])
-            send_control_signal(1, "1")
-            send_control_signal(2, "1")
-
-
-def send_control_signal(esp_id, message):
-    if 0 <= esp_id < len(ESP_IPS):
-        esp_ip = ESP_IPS[esp_id]
-        try:
-            sock.sendto(message.encode(), (esp_ip, SHARED_UDP_PORT))
-            print(f"Activar motor ESP {esp_id+1}")
-        except Exception as e:
-            print(f"Error enviando señal al ESP {esp_id+1}: {e}")
+        vibration_times.append(data[7])
+        activate_selected_motors([0, 1])
+        last_vibration_time = current_time
 
 
 def update_data(data, label_texts):
@@ -92,7 +139,7 @@ def update_data(data, label_texts):
             min_timestamp = min(timestamps)
             max_timestamp = max(timestamps)
 
-            if max_timestamp - min_timestamp <= MAX_TIME_DIFF:
+            if max_timestamp - min_timestamp <= MAX_TIME_SYNC_DIFF:
                 record_entry = [elapsed_time]
                 for i in range(NUM_ESPS):
                     synchronized_data = buffers[i].pop(0)
@@ -107,7 +154,7 @@ def update_data(data, label_texts):
                             synchronized_data[6],
                         ]
                     )
-                    analyze_event(i, synchronized_data)
+                    analyze_event(synchronized_data)
 
                 recorded_data.append(record_entry)
             else:
@@ -148,21 +195,23 @@ def update_gui(data_queue, label_texts, root):
             root.after(0, update_data, data, label_texts)
 
 
-def toggle_recording(record_button, label_texts):
-    global recording, recorded_data, start_time, csv_filename, vibration_times_3, vibration_times_4
+def toggle_recording(record_button):
+    global recording, recorded_data, start_time, csv_filename, vibration_times
     recording = not recording
     if recording:
         start_time = None
         recorded_data = []
         record_button.config(text="Stop Recording", bg="red", fg="white")
     else:
-        save_data_to_csv(csv_filename, recorded_data)
-        csv_filename = clean_and_rename_csv(csv_filename)
-        plot_data(csv_filename, vibration_times_3, vibration_times_4)
-        vibration_times_3, vibration_times_4 = [], []
+        save_data_to_csv(output_folder + csv_filename, recorded_data)
+        final_csv_filename = clean_and_rename_csv(output_folder + csv_filename)
+        plot_data(final_csv_filename, vibration_times)
+        vibration_times = []
+        os.remove(output_folder + csv_filename)
         record_button.config(text="Start Recording", bg="green", fg="white")
 
-def plot_data(csv_filename, vibration_times_3=None, vibration_times_4=None):
+
+def plot_data(csv_filename, vibration_times=None):
     # Lee el archivo CSV
 
     accSetColors = ["red", "blue", "green"]
@@ -172,155 +221,59 @@ def plot_data(csv_filename, vibration_times_3=None, vibration_times_4=None):
     gyr_y_lims = (-5, 5)
 
     try:
-        df = pd.read_csv(csv_filename, sep=",")
+        df = pd.read_csv(output_folder + csv_filename, sep=",")
     except FileNotFoundError:
         print("Error: Archivo no encontrado.")
         return
 
-    fig, axs = plt.subplots(4, 2, figsize=(12, 8), sharex='col', sharey='row')
+    fig, axs = plt.subplots(2, 2, figsize=(12, 8), sharex="col", sharey="row")
 
     sensor_titles = [
         "Sensor 1 - Muslo Izquierdo",
         "Sensor 2 - Muslo Derecho",
-        "Sensor 3 - Gemelo Izquierdo",
-        "Sensor 4 - Gemelo Derecho",
     ]
 
     # Plot para acc_data
-    axs[0, 0].plot(
-        df["timestamp_1"], df["acc_x_1"], label="x", color=accSetColors[0]
-    )
-    axs[0, 0].plot(
-        df["timestamp_1"], df["acc_y_1"], label="y", color=accSetColors[1]
-    )
-    axs[0, 0].plot(
-        df["timestamp_1"], df["acc_z_1"], label="z", color=accSetColors[2]
-    )
+    axs[0, 0].plot(df["timestamp_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+    axs[0, 0].plot(df["timestamp_1"], df["acc_y_1"], label="y", color=accSetColors[1])
+    axs[0, 0].plot(df["timestamp_1"], df["acc_z_1"], label="z", color=accSetColors[2])
     axs[0, 0].set_title(f"{sensor_titles[0]}")
     axs[0, 0].set_ylabel("Aceleración")
     axs[0, 0].legend(loc="lower left")
     axs[0, 0].set_ylim(acc_y_lims)
+    if vibration_times:
+        for time_point in vibration_times:
+            axs[0, 0].axvline(x=time_point, color="black", linestyle="--", linewidth=1)
+    axs[1, 0].set_ylim(acc_y_lims)
 
-    axs[0, 1].plot(
-        df["timestamp_1"], df["acc_x_2"], label="x", color=accSetColors[0]
-    )
-    axs[0, 1].plot(
-        df["timestamp_1"], df["acc_y_2"], label="y", color=accSetColors[1]
-    )
-    axs[0, 1].plot(
-        df["timestamp_1"], df["acc_z_2"], label="z", color=accSetColors[2]
-    )
+    axs[0, 1].plot(df["timestamp_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+    axs[0, 1].plot(df["timestamp_1"], df["acc_y_2"], label="y", color=accSetColors[1])
+    axs[0, 1].plot(df["timestamp_1"], df["acc_z_2"], label="z", color=accSetColors[2])
     axs[0, 1].set_title(f"{sensor_titles[1]}")
     axs[0, 1].set_ylabel("Aceleración")
     axs[0, 1].legend(loc="lower left")
     axs[0, 1].set_ylim(acc_y_lims)
-
-    axs[1, 0].plot(
-        df["timestamp_1"], df["acc_x_3"], label="x", color=accSetColors[0]
-    )
-    axs[1, 0].plot(
-        df["timestamp_1"], df["acc_y_3"], label="y", color=accSetColors[1]
-    )
-    axs[1, 0].plot(
-        df["timestamp_1"], df["acc_z_3"], label="z", color=accSetColors[2]
-    )
-    axs[1, 0].set_title(f"{sensor_titles[2]}")
-    axs[1, 0].set_ylabel("Aceleración")
-    axs[1, 0].legend(loc="lower left")
-    if vibration_times_3:
-        for time_point in vibration_times_3:
-            axs[1, 0].axvline(
-                x=time_point, color="black", linestyle="--", linewidth=1
-            )
+    if vibration_times:
+        for time_point in vibration_times:
+            axs[0, 1].axvline(x=time_point, color="black", linestyle="--", linewidth=1)
     axs[1, 0].set_ylim(acc_y_lims)
 
-    axs[1, 1].plot(
-        df["timestamp_1"], df["acc_x_4"], label="x", color=accSetColors[0]
-    )
-    axs[1, 1].plot(
-        df["timestamp_1"], df["acc_y_4"], label="y", color=accSetColors[1]
-    )
-    axs[1, 1].plot(
-        df["timestamp_1"], df["acc_z_4"], label="z", color=accSetColors[2]
-    )
-    axs[1, 1].set_title(f"{sensor_titles[3]}")
-    axs[1, 1].set_ylabel("Aceleración")
-    axs[1, 1].legend(loc="lower left")
-    if vibration_times_4:
-        for time_point in vibration_times_4:
-            axs[1, 1].axvline(
-                x=time_point, color="black", linestyle="--", linewidth=1
-            )
-    axs[1, 1].set_ylim(acc_y_lims)
-
     # Plot para gyr_data
-    axs[2, 0].plot(
-        df["timestamp_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0]
-    )
-    axs[2, 0].plot(
-        df["timestamp_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1]
-    )
-    axs[2, 0].plot(
-        df["timestamp_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2]
-    )
-    axs[2, 0].set_title(f"{sensor_titles[0]}")
-    axs[2, 0].set_ylabel("Giroscopio")
-    axs[2, 0].legend(loc="lower left")
-    axs[2, 0].set_ylim(gyr_y_lims)
+    axs[1, 0].plot(df["timestamp_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
+    axs[1, 0].plot(df["timestamp_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
+    axs[1, 0].plot(df["timestamp_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
+    axs[1, 0].set_title(f"{sensor_titles[0]}")
+    axs[1, 0].set_ylabel("Giroscopio")
+    axs[1, 0].legend(loc="lower left")
+    axs[1, 0].set_ylim(gyr_y_lims)
 
-
-    axs[2, 1].plot(
-        df["timestamp_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0]
-    )
-    axs[2, 1].plot(
-        df["timestamp_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1]
-    )
-    axs[2, 1].plot(
-        df["timestamp_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2]
-    )
-    axs[2, 1].set_title(f"{sensor_titles[1]}")
-    axs[2, 1].set_ylabel("Giroscopio")
-    axs[2, 1].legend(loc="lower left")
-    axs[2, 1].set_ylim(gyr_y_lims)
-
-
-    axs[3, 0].plot(
-        df["timestamp_1"], df["gyr_x_3"], label="x", color=gyrSetColors[0]
-    )
-    axs[3, 0].plot(
-        df["timestamp_1"], df["gyr_y_3"], label="y", color=gyrSetColors[1]
-    )
-    axs[3, 0].plot(
-        df["timestamp_1"], df["gyr_z_3"], label="z", color=gyrSetColors[2]
-    )
-    axs[3, 0].set_title(f"{sensor_titles[2]}")
-    axs[3, 0].set_ylabel("Giroscopio")
-    axs[3, 0].legend(loc="lower left")
-    if vibration_times_3:
-        for time_point in vibration_times_3:
-            axs[3, 0].axvline(
-                x=time_point, color="black", linestyle="--", linewidth=1
-            )
-    axs[3, 0].set_ylim(gyr_y_lims)
-
-    axs[3, 1].plot(
-        df["timestamp_1"], df["gyr_x_4"], label="x", color=gyrSetColors[0]
-    )
-    axs[3, 1].plot(
-        df["timestamp_1"], df["gyr_y_4"], label="y", color=gyrSetColors[1]
-    )
-    axs[3, 1].plot(
-        df["timestamp_1"], df["gyr_z_4"], label="z", color=gyrSetColors[2]
-    )
-    axs[3, 1].set_title(f"{sensor_titles[3]}")
-    axs[3, 1].set_ylabel("Giroscopio")
-    axs[3, 1].legend(loc="lower left")
-    if vibration_times_4:
-        for time_point in vibration_times_4:
-            axs[3, 1].axvline(
-                x=time_point, color="black", linestyle="--", linewidth=1
-            )
-    axs[3, 1].set_ylim(gyr_y_lims)
+    axs[1, 1].plot(df["timestamp_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
+    axs[1, 1].plot(df["timestamp_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
+    axs[1, 1].plot(df["timestamp_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
+    axs[1, 1].set_title(f"{sensor_titles[1]}")
+    axs[1, 1].set_ylabel("Giroscopio")
+    axs[1, 1].legend(loc="lower left")
+    axs[1, 1].set_ylim(gyr_y_lims)
 
     fig.supxlabel("Tiempo [s]")
 
@@ -329,7 +282,7 @@ def plot_data(csv_filename, vibration_times_3=None, vibration_times_4=None):
 
     plt.suptitle(suptitle)
     plt.tight_layout()
-    plt.savefig(suptitle + ".png")  # Guardar el gráfico como una imagen PNG
+    plt.savefig(output_folder + suptitle + ".png")  # Guardar el gráfico como una imagen PNG
     plt.show()
 
 
@@ -342,12 +295,12 @@ def get_first_and_last_timestamp(csv_filename):
 
 def clean_and_rename_csv(csv_filename):
     df = pd.read_csv(csv_filename, delimiter=",")
-    for column in ["timestamp_1", "timestamp_2", "timestamp_3", "timestamp_4"]:
+    for column in ["timestamp_1", "timestamp_2"]:
         df = df.drop_duplicates(subset=[column])
     df.insert(0, "index", range(len(df)))
     first_timestamp, last_timestamp = get_first_and_last_timestamp(csv_filename)
     filename = f"{first_timestamp}_{last_timestamp}.csv"
-    df.to_csv(filename, index=False)
+    df.to_csv(output_folder + filename, index=False)
     return filename
 
 
