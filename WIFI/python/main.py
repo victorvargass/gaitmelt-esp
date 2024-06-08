@@ -4,7 +4,12 @@ import threading
 from utils import GaitMelt  # Asegúrate de que esta importación sea correcta
 
 # Configuración de los ESPs
-ESP_IPS = ["192.168.50.11", "192.168.50.12", "192.168.50.13", "192.168.50.14"]
+ESP_IPS = {
+    1: "192.168.50.11",
+    2: "192.168.50.12",
+    3: "192.168.50.13",
+    4: "192.168.50.14",
+}
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
@@ -16,19 +21,24 @@ OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/"
 
 if TASK_NAME == "parkinson":
     NUM_ESPS = 4
-    THY = 3
+    THY = 1.5
     VD = 500  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
+    MIN_DURATION_BETWEEN_HEELS = None
 elif TASK_NAME == "salto":
     NUM_ESPS = 2
     THY = 7.5
     VD = 1000  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 2
+    MIN_DURATION_BETWEEN_HEELS = None
 elif TASK_NAME == "caminata":
     NUM_ESPS = 2
-    THY = 4.0
-    VD = 100  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 0.5
+    THY = 2.0
+    VD = 200  # vibration duration
+    TIME_BETWEEN_VIBRATIONS = 0.6
+    MIN_DURATION_BETWEEN_HEELS = 0.6
+
+ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
 
 # Crear una instancia de GaitMelt
 gaitmelt = GaitMelt(
@@ -36,6 +46,7 @@ gaitmelt = GaitMelt(
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
     num_esps=NUM_ESPS,
+    esp_indexes=ESP_INDEXES,
     esp_ips=ESP_IPS,
     struct_format=STRUCT_FORMAT,
     output_folder=OUTPUT_FOLDER,
@@ -43,11 +54,12 @@ gaitmelt = GaitMelt(
     time_between_vibrations=TIME_BETWEEN_VIBRATIONS,
     thy=THY,
     vd=VD,
+    min_duration_between_heels=MIN_DURATION_BETWEEN_HEELS,
 )
 
 # Configurar la interfaz gráfica
 root = tk.Tk()
-root.geometry("1600x900")
+root.geometry("1300x800")
 root.option_add("*Font", "Helvetica 20")
 
 # Configurar el layout de la cuadrícula
@@ -84,7 +96,7 @@ for i, panel in enumerate(panels):
 motor_button_1 = tk.Button(
     root,
     text="Activar vibrador 1",
-    command=lambda: gaitmelt.activate_selected_motors([0]),
+    command=lambda: gaitmelt.activate_selected_motors([1]),
     bg="red",
     fg="white",
 )
@@ -93,7 +105,7 @@ motor_button_1.grid(row=2, column=0, columnspan=2, pady=(20, 0))
 motor_button_2 = tk.Button(
     root,
     text="Activar vibrador 2",
-    command=lambda: gaitmelt.activate_selected_motors([1]),
+    command=lambda: gaitmelt.activate_selected_motors([2]),
     bg="red",
     fg="white",
 )
@@ -103,7 +115,7 @@ if NUM_ESPS == 4:
     motor_button_3 = tk.Button(
         root,
         text="Activar vibrador 3",
-        command=lambda: gaitmelt.activate_selected_motors([2]),
+        command=lambda: gaitmelt.activate_selected_motors([3]),
         bg="red",
         fg="white",
     )
@@ -111,7 +123,7 @@ if NUM_ESPS == 4:
     motor_button_4 = tk.Button(
         root,
         text="Activar vibrador 4",
-        command=lambda: gaitmelt.activate_selected_motors([3]),
+        command=lambda: gaitmelt.activate_selected_motors([4]),
         bg="red",
         fg="white",
     )
@@ -119,8 +131,8 @@ if NUM_ESPS == 4:
 
 all_motors_button = tk.Button(
     root,
-    text="Activar todos los vibradores",
-    command=lambda: gaitmelt.activate_selected_motors(range(NUM_ESPS)),
+    text="Activar todos",
+    command=lambda: gaitmelt.activate_selected_motors(ESP_INDEXES),
     bg="red",
     fg="white",
 )
