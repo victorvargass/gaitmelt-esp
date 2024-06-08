@@ -4,3 +4,5 @@ BLE/uuid.txt
 *__pycache__
 *.csv
 *.png
+*.json
+*.ipynb
