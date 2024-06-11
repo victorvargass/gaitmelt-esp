@@ -25,6 +25,7 @@ class GaitMelt:
         time_between_vibrations,
         thy,
         vd,
+        motor_power,
         min_duration_between_heels,
     ):
         self.task_name = task_name
@@ -39,6 +40,7 @@ class GaitMelt:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.thy = thy
         self.vd = vd
+        self.motor_power = motor_power
         self.max_time_sync_diff = 8  # Máxima diferencia de tiempo permitida (8 ms)
         self.time_between_vibrations = time_between_vibrations
 
@@ -189,6 +191,10 @@ class GaitMelt:
     def update_vd(self, new_vd):
         self.vd = int(new_vd)
         self.set_selected_motors_vibration_time()
+
+    def update_motor_power(self, new_motor_power):
+        self.motor_power = int(new_motor_power)
+        self.set_selected_motors_motor_power()
 
     def save_data_to_csv(self):
         with open(self.output_folder + self.csv_filename, "w", newline="") as csvfile:
@@ -365,7 +371,6 @@ class GaitMelt:
         record_button.config(text="Start Recording", bg="green", fg="white")
 
     def stop_recording(self, record_button):
-        self.sync_devices()
         self.start_time = None
         self.recorded_data = []
         record_button.config(text="Parar grabación", bg="red", fg="white")
@@ -385,6 +390,7 @@ class GaitMelt:
 
     def sync_devices(self):
         self.set_selected_motors_vibration_time()
+        self.set_selected_motors_motor_power()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self.send_esp_message, self.esp_ips[esp], "reset")
@@ -406,7 +412,19 @@ class GaitMelt:
                 executor.submit(
                     self.send_esp_message,
                     self.esp_ips[esp],
-                    str(self.vd),
+                    "duration" + str(self.vd),
+                )
+                for esp in self.esp_indexes
+            ]
+            concurrent.futures.wait(futures)
+
+    def set_selected_motors_motor_power(self):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self.send_esp_message,
+                    self.esp_ips[esp],
+                    "power" + str(int(self.motor_power)),
                 )
                 for esp in self.esp_indexes
             ]

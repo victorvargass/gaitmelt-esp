@@ -15,7 +15,7 @@ LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 CSV_FILENAME = "recorded_data.csv"
 
-TASK_NAME = "salto"  # salto, parkinson, caminata
+TASK_NAME = "parkinson"  # salto, parkinson, caminata
 
 OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/"
 
@@ -25,18 +25,21 @@ if TASK_NAME == "parkinson":
     VD = 500  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
     MIN_DURATION_BETWEEN_HEELS = None
+    MOTOR_POWER = 70
 elif TASK_NAME == "salto":
     NUM_ESPS = 2
     THY = 7.5
     VD = 1000  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 2
     MIN_DURATION_BETWEEN_HEELS = None
+    MOTOR_POWER = 70
 elif TASK_NAME == "caminata":
     NUM_ESPS = 2
-    THY = 2.0
+    THY = 3
     VD = 200  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 0.6
-    MIN_DURATION_BETWEEN_HEELS = 0.6
+    MIN_DURATION_BETWEEN_HEELS = 2
+    MOTOR_POWER = 70
 
 ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
 
@@ -54,11 +57,12 @@ gaitmelt = GaitMelt(
     time_between_vibrations=TIME_BETWEEN_VIBRATIONS,
     thy=THY,
     vd=VD,
+    motor_power=MOTOR_POWER,
     min_duration_between_heels=MIN_DURATION_BETWEEN_HEELS,
 )
 
 # Configurar la interfaz gráfica
-root = tk.Tk()
+root = tk.Tk(className=TASK_NAME)
 root.geometry("1300x800")
 root.option_add("*Font", "Helvetica 20")
 
@@ -186,6 +190,22 @@ vd_slider = tk.Scale(
 )
 vd_slider.set(gaitmelt.vd)
 vd_slider.grid(row=7, column=1, columnspan=2)
+
+# Slider para acc_y_threshold (ThY)
+motor_power_slider_label = tk.Label(root, text="Potencia motor")
+motor_power_slider_label.grid(row=8, column=1, columnspan=4, pady=(20, 0))
+
+motor_power_slider = tk.Scale(
+    root,
+    from_=10,
+    resolution=10,
+    to=250,
+    orient="horizontal",
+    length=200,
+    command=lambda value: gaitmelt.update_motor_power(motor_power_slider.get()),
+)
+motor_power_slider.set(gaitmelt.motor_power)
+motor_power_slider.grid(row=9, column=1, columnspan=2)
 
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * NUM_ESPS
