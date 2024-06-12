@@ -6,11 +6,13 @@
 #include "time.h"
 
 #define BOARD_ID 1 // BOARD_ID 1, 2, 3, 4
+const char* deviceName = "GaitMelt Device 1"; // Nombre del dispositivo
 #define MOTORINA 26
 #define MOTORINB 25
 
 Adafruit_MPU6050 mpu;
-float vibrationDuration = 100;
+float motorPower = 255;
+float vibrationDuration = 500;
 unsigned long startTime;
 
 // Estructura de datos de MPU
@@ -72,6 +74,7 @@ bool motorState = false; // Estado actual del motor
 void setupWIFI() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
+  WiFi.setHostname(deviceName);
   WiFi.begin(ssid, password);
   int retries = 0;
   while (WiFi.status() != WL_CONNECTED && retries < 10) {
@@ -118,31 +121,49 @@ void loop() {
   // Recibir paquete de control del motor
   int packetSize = Udp.parsePacket();
   if (packetSize) {
-    char incomingPacket[255];
-    int len = Udp.read(incomingPacket, 255);
-    if (len > 0) {
-      incomingPacket[len] = 0;
-    }
-
-    // Suponiendo que el paquete es un solo valor booleano o comando de reset
-    if (strcmp(incomingPacket, "reset") == 0) {
-      startTime = millis();  // Actualizamos el tiempo de referencia
-      Serial.println("Reiniciando el tiempo a cero.");
-    } else {
-      motorState = incomingPacket[0] == '1';
-
-      if (motorState) {
-        digitalWrite(MOTORINA, HIGH);
-        digitalWrite(MOTORINB, LOW);
-        motorOnTime = millis();
+      char incomingPacket[255];
+      int len = Udp.read(incomingPacket, 255);
+      if (len > 0) {
+          incomingPacket[len] = 0;
       }
-    }
+
+      // Comprobamos si el paquete es "reset"
+      if (strcmp(incomingPacket, "reset") == 0) {
+          startTime = millis();
+      }
+      // Comprobamos si el paquete es "motor"
+      else if (strcmp(incomingPacket, "motor") == 0) {
+          motorState = true;
+          analogWrite(MOTORINA, motorPower);
+          analogWrite(MOTORINB, 0);
+          motorOnTime = millis();
+      }
+      // Comprobamos si el paquete es "power"
+      else if (strncmp(incomingPacket, "power", 5) == 0) {
+          // Extraemos el valor de potencia del mensaje
+          int powerValue = atoi(incomingPacket + 5);
+          if (powerValue >= 0 && powerValue <= 255) {
+              motorPower = powerValue;
+          }
+      }
+      // Comprobamos si el paquete es "duration"
+      else if (strncmp(incomingPacket, "duration", 8) == 0) {
+          // Extraemos el valor de duración del mensaje
+          int duration = atoi(incomingPacket + 8);
+          if (duration > 0 && duration <= 2000) {
+              vibrationDuration = (float)duration;
+          }
+      }
+      // Mensaje no reconocido
+      else {
+          Serial.println("wrong message");
+      }
   }
 
   // Verificar si el motor debe apagarse
   if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
-    digitalWrite(MOTORINA, LOW);
-    digitalWrite(MOTORINB, LOW);
+    analogWrite(MOTORINA, 0);
+    analogWrite(MOTORINB, 0);
     motorState = false;
   }
 
