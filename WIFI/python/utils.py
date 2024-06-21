@@ -61,6 +61,8 @@ class GaitMelt:
         self.min_duration_between_heels = (
             min_duration_between_heels  # Duracion minima entre talones
         )
+        self.vibrating = False
+        self.last_vibration_esp = 0
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -72,10 +74,18 @@ class GaitMelt:
         acc_y = data[2]
         current_ts = time.time()
 
+        if (current_ts - self.last_vibration_ts)*1000 <= self.vd and not self.vibrating:
+            self.vibrating = True
+            print("Vibrando...")
+        if (current_ts - self.last_vibration_ts)*1000 > self.vd and self.vibrating:
+            self.vibrating = False
+            print("Dejó de vibrar")
+
         if self.task_name == "salto":
             if (
                 accState == "Boton hacia abajo"
                 and ((acc_y - 9.8) > self.thy)
+                and not self.vibrating
                 and current_ts - self.last_vibration_ts > self.time_between_vibrations
             ):
                 print(
@@ -95,21 +105,27 @@ class GaitMelt:
             if (
                 self.diff_heel_time >= self.min_duration_between_heels
                 and self.last_heel_ts != 0
-                and current_ts - self.last_vibration_ts > self.time_between_vibrations
+                and not self.vibrating
+                #and self.last_vibration_esp == esp_id
+                #and current_ts - self.last_vibration_ts > self.time_between_vibrations
                 and len(self.esp_steps) >= 1
             ):
                 print(
                     "Demoró mucho, activar motor",
-                    "diff_heel_time",
-                    self.diff_heel_time,
-                    "diff vibration",
-                    current_ts - self.last_vibration_ts,
+                    "self.vibrating",
+                    self.vibrating,
+                    #"diff_heel_time",
+                    #self.diff_heel_time,
+                    #"diff vibration",
+                    #current_ts - self.last_vibration_ts,
                 )
                 self.last_vibration_ts = current_ts
                 if self.esp_steps[-1] == 1:
-                    self.activate_selected_motors([2])
+                    #self.activate_selected_motors([2])
+                    self.last_vibration_esp = 2
                 if self.esp_steps[-1] == 2:
-                    self.activate_selected_motors([1])
+                    #self.activate_selected_motors([1])
+                    self.last_vibration_esp = 1
             # Detección talon
             if (
                 accState == "Boton hacia abajo"
@@ -122,8 +138,10 @@ class GaitMelt:
                     self.esp_steps.append(esp_id)
                     if self.esp_steps[0] == 1:
                         print("First step izq")
+                        self.mark_times_1.append(data[7])
                     else:
                         print("First step der")
+                        self.mark_times_2.append(data[7])
                     self.last_heel_ts = current_ts
                 # Segundo paso en adelante
                 else:
@@ -132,6 +150,10 @@ class GaitMelt:
                         print("Pie distinto")
                         self.esp_steps.append(esp_id)
                         self.last_heel_ts = current_ts
+                        if esp_id == 1:
+                            self.mark_times_1.append(data[7])
+                        if esp_id == 2:
+                            self.mark_times_2.append(data[7])
                     # Si el pie es el mismo (error deteccion)
                     else:
                         print("Mismo pie seguido, reiniciando")
@@ -391,6 +413,7 @@ class GaitMelt:
     def sync_devices(self):
         self.set_selected_motors_vibration_time()
         self.set_selected_motors_motor_power()
+        self.reinitialize_gaitmelt_variables()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self.send_esp_message, self.esp_ips[esp], "reset")
@@ -399,6 +422,7 @@ class GaitMelt:
             concurrent.futures.wait(futures)
 
     def activate_selected_motors(self, selected_esp_indexes):
+        print("sending vibration", selected_esp_indexes)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self.send_esp_message, self.esp_ips[esp], "motor")
@@ -571,8 +595,8 @@ class GaitMelt:
             axs[0, 1].set_ylabel("Aceleración")
             axs[0, 1].legend(loc="lower left")
             axs[0, 1].set_ylim(acc_y_lims)
-            if mark_times_1:
-                for time_point in mark_times_1:
+            if mark_times_2:
+                for time_point in mark_times_2:
                     axs[0, 1].axvline(
                         x=time_point, color="black", linestyle="--", linewidth=1
                     )
