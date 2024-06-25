@@ -132,8 +132,11 @@ void loop() {
           startTime = millis();
       }
       // Comprobamos si el paquete es "motor"
-      else if (strcmp(incomingPacket, "motor") == 0) {
+      else if (strncmp(incomingPacket, "motor", 5) == 0) {
           motorState = true;
+          int vibrationOffset = atoi(incomingPacket + 5);
+          Serial.println(vibrationOffset);
+          delay(vibrationOffset);
           analogWrite(MOTORINA, motorPower);
           analogWrite(MOTORINB, 0);
           motorOnTime = millis();
