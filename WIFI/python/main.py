@@ -10,12 +10,19 @@ ESP_IPS = {
     3: "192.168.50.13",
     4: "192.168.50.14",
 }
+#intercambio de esps con motores con problemas
+ESP_IPS = {
+    1: "192.168.50.12", 
+    2: "192.168.50.14",
+    3: "192.168.50.13",
+    4: "192.168.50.14",
+}
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 CSV_FILENAME = "recorded_data.csv"
 
-TASK_NAME = "parkinson"  # salto, parkinson, caminata
+TASK_NAME = "caminata"  # salto, parkinson, caminata
 
 OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/"
 
@@ -26,22 +33,29 @@ if TASK_NAME == "parkinson":
     TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
     MIN_DURATION_BETWEEN_HEELS = None
     MOTOR_POWER = 70
+    VIBRATION_OFFSET=None
 elif TASK_NAME == "salto":
     NUM_ESPS = 2
     THY = 7.5
     VD = 1000  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 2
+    TIME_BETWEEN_VIBRATIONS = 5
+    TIME_BETWEEN_HEEL_DETECTION = None
     MIN_DURATION_BETWEEN_HEELS = None
-    MOTOR_POWER = 70
+    MOTOR_POWER = 250
+    VIBRATION_OFFSET=None
 elif TASK_NAME == "caminata":
     NUM_ESPS = 2
-    THY = 3
-    VD = 200  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 0.6
-    MIN_DURATION_BETWEEN_HEELS = 2
-    MOTOR_POWER = 70
+    THY = 9
+    VD = 300  # vibration duration
+    TIME_BETWEEN_VIBRATIONS = 1
+    TIME_BETWEEN_HEEL_DETECTION = 0.15
+    MIN_DURATION_BETWEEN_HEELS = 2 # tiempo mas 5%
+    MOTOR_POWER = 200
+    VIBRATION_OFFSET=100
 
 ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
+
+SCREEN_SIZE = "1300x700" if NUM_ESPS == 2 else "1300x900"
 
 # Crear una instancia de GaitMelt
 gaitmelt = GaitMelt(
@@ -55,15 +69,17 @@ gaitmelt = GaitMelt(
     output_folder=OUTPUT_FOLDER,
     csv_filename=CSV_FILENAME,
     time_between_vibrations=TIME_BETWEEN_VIBRATIONS,
+    time_between_heel_detection=TIME_BETWEEN_HEEL_DETECTION,
     thy=THY,
     vd=VD,
     motor_power=MOTOR_POWER,
     min_duration_between_heels=MIN_DURATION_BETWEEN_HEELS,
+    vibration_offset=VIBRATION_OFFSET
 )
 
 # Configurar la interfaz gráfica
 root = tk.Tk(className=TASK_NAME)
-root.geometry("1300x800")
+root.geometry(SCREEN_SIZE)
 root.option_add("*Font", "Helvetica 20")
 
 # Configurar el layout de la cuadrícula
