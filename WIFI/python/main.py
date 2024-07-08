@@ -10,29 +10,25 @@ ESP_IPS = {
     3: "192.168.50.13",
     4: "192.168.50.14",
 }
-#intercambio de esps con motores con problemas
-ESP_IPS = {
-    1: "192.168.50.12", 
-    2: "192.168.50.14",
-    3: "192.168.50.13",
-    4: "192.168.50.14",
-}
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
-CSV_FILENAME = "recorded_data.csv"
+OUTPUT_FILENAME = "ejemplo"
 
 TASK_NAME = "caminata"  # salto, parkinson, caminata
 
-OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/"
+OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/8-jun-24/"
+#OUTPUT_FOLDER = "output_data/" + TASK_NAME
+READING_MODE = True
 
 if TASK_NAME == "parkinson":
     NUM_ESPS = 4
     THY = 1.5
-    VD = 500  # vibration duration
+    VD = 1000  # 500 vibration duration
     TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
+    TIME_BETWEEN_HEEL_DETECTION = None
     MIN_DURATION_BETWEEN_HEELS = None
-    MOTOR_POWER = 70
+    MOTOR_POWER = 250 # 70
     VIBRATION_OFFSET=None
 elif TASK_NAME == "salto":
     NUM_ESPS = 2
@@ -45,11 +41,11 @@ elif TASK_NAME == "salto":
     VIBRATION_OFFSET=None
 elif TASK_NAME == "caminata":
     NUM_ESPS = 2
-    THY = 9
+    THY = 9 #ale 4 david 9
     VD = 300  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 1
-    TIME_BETWEEN_HEEL_DETECTION = 0.15
-    MIN_DURATION_BETWEEN_HEELS = 2 # tiempo mas 5%
+    TIME_BETWEEN_HEEL_DETECTION = 1
+    MIN_DURATION_BETWEEN_HEELS = [1.43, 1.45]
     MOTOR_POWER = 200
     VIBRATION_OFFSET=100
 
@@ -67,14 +63,15 @@ gaitmelt = GaitMelt(
     esp_ips=ESP_IPS,
     struct_format=STRUCT_FORMAT,
     output_folder=OUTPUT_FOLDER,
-    csv_filename=CSV_FILENAME,
+    output_filename=OUTPUT_FILENAME,
     time_between_vibrations=TIME_BETWEEN_VIBRATIONS,
     time_between_heel_detection=TIME_BETWEEN_HEEL_DETECTION,
     thy=THY,
     vd=VD,
     motor_power=MOTOR_POWER,
     min_duration_between_heels=MIN_DURATION_BETWEEN_HEELS,
-    vibration_offset=VIBRATION_OFFSET
+    vibration_offset=VIBRATION_OFFSET,
+    reading_mode=READING_MODE
 )
 
 # Configurar la interfaz gráfica
@@ -157,6 +154,20 @@ all_motors_button = tk.Button(
     fg="white",
 )
 all_motors_button.grid(row=6, column=0, columnspan=2, pady=(20, 0))
+
+label_output_filename = tk.Label(root, text="Nombre del archivo")
+label_output_filename.grid(row=7, column=0, columnspan=2, pady=(20, 0))
+input_output_filename = tk.Entry(root)
+input_output_filename.grid(row=8, column=0, columnspan=2, pady=(20, 0))
+input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
+input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
+
+reading_mode_var = tk.BooleanVar()
+reading_mode_var.set(READING_MODE)
+toggle_button = tk.Checkbutton(root, text="Modo de Lectura", variable=reading_mode_var, 
+                               command=gaitmelt.update_reading_mode)
+toggle_button.grid(row=9, column=0, columnspan=2, pady=(20, 0))
+
 
 record_button = tk.Button(
     root,

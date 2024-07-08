@@ -21,7 +21,7 @@ class GaitMelt:
         esp_ips,
         struct_format,
         output_folder,
-        csv_filename,
+        output_filename,
         time_between_vibrations,
         time_between_heel_detection,
         thy,
@@ -29,6 +29,7 @@ class GaitMelt:
         motor_power,
         min_duration_between_heels,
         vibration_offset,
+        reading_mode,
     ):
         self.task_name = task_name
         self.local_udp_ip = local_udp_ip
@@ -38,7 +39,7 @@ class GaitMelt:
         self.esp_ips = esp_ips
         self.struct_format = struct_format
         self.output_folder = output_folder
-        self.csv_filename = csv_filename
+        self.output_filename = output_filename
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.thy = thy
         self.vd = vd
@@ -46,6 +47,7 @@ class GaitMelt:
         self.max_time_sync_diff = 8  # Máxima diferencia de tiempo permitida (8 ms)
         self.time_between_vibrations = time_between_vibrations
         self.time_between_heel_detection = time_between_heel_detection
+        self.reading_mode = reading_mode
 
         # Estado de grabación
         self.recording = False
@@ -118,9 +120,10 @@ class GaitMelt:
             if (
                 accState == "Boton hacia abajo"
                 and ((acc_y - 9.8) > self.thy)
-                and not self.vibrating
+                and not self.vibrating[0]
                 and current_ts - self.last_vibration_ts[0]
                 > self.time_between_vibrations
+                and not self.reading_mode
             ):
                 print(
                     f"Salto {len(self.mark_times_1)}",
@@ -144,17 +147,16 @@ class GaitMelt:
                 # and self.esp_len_vibration != len(self.esp_steps)
             ):
                 if (
-                    self.diff_heel_time[0] >= self.min_duration_between_heels
+                    self.diff_heel_time[0] >= self.min_duration_between_heels[0]
                     and self.esp_steps[-1] == 2
                     and not self.vibrating[0]
                     # and self.last_vibration_esp != 2
                     and current_ts - self.last_vibration_ts[0]
                     > self.time_between_vibrations
+                    and not self.reading_mode
                 ):
                     print(
-                        "Demoró mucho talon 1",
-                        # "diff_heel_time",
-                        # self.diff_heel_time[0],
+                        "Demoró mucho talon 1", "diff_heel_time", self.diff_heel_time,
                     )
                     self.esp_steps = []
                     self.last_vibration_ts[0] = current_ts
@@ -163,17 +165,16 @@ class GaitMelt:
                     self.vibration_times[0].append(data[7])
                     # self.esp_len_vibration = len(self.esp_steps)
                 if (
-                    self.diff_heel_time[1] >= self.min_duration_between_heels
+                    self.diff_heel_time[1] >= self.min_duration_between_heels[1]
                     and self.esp_steps[-1] == 1
                     and not self.vibrating[1]
                     # and self.last_vibration_esp != 1
                     and current_ts - self.last_vibration_ts[1]
                     > self.time_between_vibrations
+                    and not self.reading_mode
                 ):
                     print(
-                        "Demoró mucho talon 2",
-                        # "diff_heel_time",
-                        # self.diff_heel_time[1],
+                        "Demoró mucho talon 2", "diff_heel_time", self.diff_heel_time,
                     )
                     self.esp_steps = []
                     self.last_vibration_ts[1] = current_ts
@@ -212,8 +213,8 @@ class GaitMelt:
                         print("Primero talón 2 der")
                         self.mark_times_2.append(data[7])
                         self.last_heel_ts[1] = current_ts
-                    else:
-                        print("PRIMER TALON FALLO", esp_id, "diff_heel_time", self.diff_heel_time, "time", data[7])
+                    #else:
+                    #    print("PRIMER TALON FALLO", esp_id, "diff_heel_time", self.diff_heel_time, "time", data[7])
 
                     # print("diff_heel_time", self.diff_heel_time)
                     # print("last_heel_ts", self.last_heel_ts)
@@ -251,8 +252,8 @@ class GaitMelt:
                             # print("last_heel_ts", self.last_heel_ts[1])
                             # print("acc_x", acc_x)
                             # print("------------------------------------------")
-                        else:
-                            print("TALON PERO ERROR", esp_id, self.diff_heel_time, "time", data[7])
+                        #else:
+                        #    print("TALON PERO ERROR", esp_id, self.diff_heel_time, "time", data[7])
                         """
                         else:
                             print(
@@ -265,8 +266,8 @@ class GaitMelt:
                                 data[7],
                             )
                         """
-                    else:
-                        print("MISMO TALON", "time", data[7])
+                    #else:
+                    #    print("MISMO TALON", "time", data[7])
                     # Si el pie es el mismo (error deteccion)
                     ##pie igual debería comentarlo, ya que no debería ocurrir por la precision del eje x
             elif acc_x > self.thy:
@@ -293,6 +294,7 @@ class GaitMelt:
                     # and current_ts - self.last_vibration_esp_ts[4]
                     and current_ts - self.last_vibration_ts
                     > self.time_between_vibrations
+                    and not self.reading_mode
                 ):
                     self.mark_times_1.append(data[7])
                     self.activate_selected_motors([1, 4])
@@ -301,6 +303,7 @@ class GaitMelt:
                     # and current_ts - self.last_vibration_esp_ts[3]
                     and current_ts - self.last_vibration_ts
                     > self.time_between_vibrations
+                    and not self.reading_mode
                 ):
                     self.mark_times_2.append(data[7])
                     self.activate_selected_motors([2, 3])
@@ -312,6 +315,14 @@ class GaitMelt:
         else:
             print(self.task_name)
             print("Tarea desconocida")
+
+    def update_reading_mode(self):
+        self.reading_mode = not self.reading_mode
+        print(self.reading_mode)
+        
+    def update_output_filename(self, event):
+        new_output_filename = event.widget.get()
+        self.output_filename = new_output_filename
 
     def update_thy(self, new_thy):
         self.thy = float(new_thy)
@@ -325,7 +336,7 @@ class GaitMelt:
         self.set_selected_motors_motor_power()
 
     def save_data_to_csv(self):
-        with open(self.output_folder + self.csv_filename, "w", newline="") as csvfile:
+        with open(self.output_folder + "recorded_data.csv", "w", newline="") as csvfile:
             csvwriter = csv.writer(csvfile)
             header = ["elapsed_time"]
             for i in self.esp_indexes:
@@ -379,14 +390,8 @@ class GaitMelt:
             sensor_state = "En movimiento o no definida"
         return sensor_state
 
-    def get_first_and_last_ts(self, csv_filename):
-        df = pd.read_csv(self.output_folder + csv_filename)
-        first_ts = df["ts_1"].iloc[0]
-        last_ts = df["ts_1"].iloc[-1]
-        return first_ts, last_ts
-
     def clean_and_rename_csv(self):
-        df = pd.read_csv(self.output_folder + self.csv_filename, delimiter=",")
+        df = pd.read_csv(self.output_folder + "recorded_data.csv", delimiter=",")
         ts_columns = ["ts_1", "ts_2"]
         if self.num_esps == 4:
             ts_columns = [
@@ -398,8 +403,7 @@ class GaitMelt:
         for column in ts_columns:
             df = df.drop_duplicates(subset=[column])
         df.insert(0, "index", range(len(df)))
-        first_ts, last_ts = self.get_first_and_last_ts(self.csv_filename)
-        filename = f"{self.task_name}_{first_ts}_{last_ts}.csv"
+        filename = f"{self.output_filename}.csv"
         df.to_csv(self.output_folder + "/" + filename, index=False)
         return filename
 
@@ -434,7 +438,6 @@ class GaitMelt:
                             ]
                         )
                         self.analyze_event(esp_id, synchronized_data)
-
                     self.recorded_data.append(record_entry)
                 else:
                     oldest_index = tss.index(min_ts)
@@ -496,7 +499,7 @@ class GaitMelt:
         self.plot_data_x(final_csv_filename, self.mark_times_1, self.mark_times_2)
         self.save_plot_marks(final_csv_filename, self.mark_times_1, self.mark_times_2)
         self.reinitialize_gaitmelt_variables()
-        os.remove(self.output_folder + self.csv_filename)
+        os.remove(self.output_folder + "recorded_data.csv")
         record_button.config(text="Start Recording", bg="green", fg="white")
 
     def stop_recording(self, record_button):
@@ -529,11 +532,11 @@ class GaitMelt:
             concurrent.futures.wait(futures)
 
     def activate_selected_motors(self, selected_esp_indexes):
-        print(
-            "sending vibration",
-            selected_esp_indexes,
-            "motor" + str(self.vibration_offset),
-        )
+        #print(
+        #    "sending vibration",
+        #    selected_esp_indexes,
+        #    "motor" + str(self.vibration_offset),
+        #)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(
