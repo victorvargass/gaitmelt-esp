@@ -186,11 +186,7 @@ class GaitMelt:
 
             # Detección talon
             if (
-                (
-                    accState == "Boton hacia abajo"
-                    or accState == "En movimiento o no definida"
-                )
-                and acc_x > self.thy
+                acc_x > self.thy
                 # and not self.vibrating[esp_id-1] #debe ser vibrating del ESP del evento talón
             ):
                 # Primer paso
@@ -201,7 +197,7 @@ class GaitMelt:
                         > self.time_between_heel_detection
                     ):
                         self.esp_steps.append(1)
-                        print("Primer talón 1 izq")
+                        print("Primer talón 1 izq", acc_x)
                         self.mark_times_1.append(data[7])
                         self.last_heel_ts[0] = current_ts
                     elif (
@@ -210,7 +206,7 @@ class GaitMelt:
                         > self.time_between_heel_detection
                     ):
                         self.esp_steps.append(2)
-                        print("Primero talón 2 der")
+                        print("Primero talón 2 der", acc_x)
                         self.mark_times_2.append(data[7])
                         self.last_heel_ts[1] = current_ts
                     #else:
@@ -231,7 +227,7 @@ class GaitMelt:
                         ):
                             self.last_heel_ts[0] = current_ts
                             self.mark_times_1.append(data[7])
-                            print("Talón 1", "diff_heel_time", self.diff_heel_time, data[7])
+                            print("Talón 1", "diff_heel_time", self.diff_heel_time, acc_x, data[7])
                             # print("Pie distinto")
                             self.esp_steps.append(1)
                             # print("diff_heel_time", self.diff_heel_time[0])
@@ -245,7 +241,7 @@ class GaitMelt:
                         ):
                             self.last_heel_ts[1] = current_ts
                             self.mark_times_2.append(data[7])
-                            print("Talón 2", "diff_heel_time", self.diff_heel_time, data[7])
+                            print("Talón 2", "diff_heel_time", self.diff_heel_time, acc_x, data[7])
                             # print("Pie distinto")
                             self.esp_steps.append(2)
                             # print("diff_heel_time", self.diff_heel_time[1])
@@ -270,8 +266,8 @@ class GaitMelt:
                     #    print("MISMO TALON", "time", data[7])
                     # Si el pie es el mismo (error deteccion)
                     ##pie igual debería comentarlo, ya que no debería ocurrir por la precision del eje x
-            elif acc_x > self.thy:
-                print("SOLO UMBRAL SE CUMPLE", accState, "time", data[7])
+            #elif acc_x < self.thy:
+            #    print("SOLO UMBRAL SE CUMPLE", accState, "time", data[7])
 
         elif self.task_name == "parkinson":
             if (
@@ -318,7 +314,6 @@ class GaitMelt:
 
     def update_reading_mode(self):
         self.reading_mode = not self.reading_mode
-        print(self.reading_mode)
         
     def update_output_filename(self, event):
         new_output_filename = event.widget.get()

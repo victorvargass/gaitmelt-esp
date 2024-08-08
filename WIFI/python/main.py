@@ -13,7 +13,7 @@ ESP_IPS = {
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
-OUTPUT_FILENAME = "ejemplo"
+OUTPUT_FILENAME = "Voluntario 04 - TUG SV1"
 
 TASK_NAME = "caminata"  # salto, parkinson, caminata
 
@@ -41,12 +41,12 @@ elif TASK_NAME == "salto":
     VIBRATION_OFFSET=None
 elif TASK_NAME == "caminata":
     NUM_ESPS = 2
-    THY = 9 #ale 4 david 9
+    THY = 12
     VD = 300  # vibration duration
     TIME_BETWEEN_VIBRATIONS = 1
-    TIME_BETWEEN_HEEL_DETECTION = 1
-    MIN_DURATION_BETWEEN_HEELS = [1.43, 1.45]
-    MOTOR_POWER = 200
+    TIME_BETWEEN_HEEL_DETECTION = 0.5
+    MIN_DURATION_BETWEEN_HEELS = [1.28, 1.26]
+    MOTOR_POWER = 30
     VIBRATION_OFFSET=100
 
 ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
@@ -193,9 +193,9 @@ thy_slider_label.grid(row=4, column=1, columnspan=4, pady=(20, 0))
 
 thy_slider = tk.Scale(
     root,
-    from_=0,
+    from_=-20,
     resolution=0.1,
-    to=10,
+    to=15,
     orient="horizontal",
     length=200,
     command=lambda value: gaitmelt.update_thy(thy_slider.get()),
