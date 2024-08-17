@@ -10,44 +10,23 @@ ESP_IPS = {
     3: "192.168.50.13",
     4: "192.168.50.14",
 }
+
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 OUTPUT_FILENAME = "Voluntario 04 - TUG SV1"
 
-TASK_NAME = "caminata"  # salto, parkinson, caminata
-
-OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/8-jun-24/"
-#OUTPUT_FOLDER = "output_data/" + TASK_NAME
+OUTPUT_FOLDER = "output_data/"
 READING_MODE = True
 
-if TASK_NAME == "parkinson":
-    NUM_ESPS = 4
-    THY = 1.5
-    VD = 1000  # 500 vibration duration
-    TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
-    TIME_BETWEEN_HEEL_DETECTION = None
-    MIN_DURATION_BETWEEN_HEELS = None
-    MOTOR_POWER = 250 # 70
-    VIBRATION_OFFSET=None
-elif TASK_NAME == "salto":
-    NUM_ESPS = 2
-    THY = 7.5
-    VD = 1000  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 5
-    TIME_BETWEEN_HEEL_DETECTION = None
-    MIN_DURATION_BETWEEN_HEELS = None
-    MOTOR_POWER = 250
-    VIBRATION_OFFSET=None
-elif TASK_NAME == "caminata":
-    NUM_ESPS = 2
-    THY = 12
-    VD = 300  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 1
-    TIME_BETWEEN_HEEL_DETECTION = 0.5
-    MIN_DURATION_BETWEEN_HEELS = [1.28, 1.26]
-    MOTOR_POWER = 30
-    VIBRATION_OFFSET=100
+NUM_ESPS = 4
+THY = 1.5
+VD = 1000  # 500 vibration duration
+TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
+TIME_BETWEEN_HEEL_DETECTION = None
+MIN_DURATION_BETWEEN_HEELS = None
+MOTOR_POWER = 250 # 70
+VIBRATION_OFFSET=None
 
 ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
 
@@ -55,7 +34,6 @@ SCREEN_SIZE = "1300x700" if NUM_ESPS == 2 else "1300x900"
 
 # Crear una instancia de GaitMelt
 gaitmelt = GaitMelt(
-    task_name=TASK_NAME,
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
     num_esps=NUM_ESPS,
@@ -75,7 +53,7 @@ gaitmelt = GaitMelt(
 )
 
 # Configurar la interfaz gráfica
-root = tk.Tk(className=TASK_NAME)
+root = tk.Tk()
 root.geometry(SCREEN_SIZE)
 root.option_add("*Font", "Helvetica 20")
 

@@ -13,7 +13,6 @@ import json
 class GaitMelt:
     def __init__(
         self,
-        task_name,
         local_udp_ip,
         shared_port,
         num_esps,
@@ -31,7 +30,6 @@ class GaitMelt:
         vibration_offset,
         reading_mode,
     ):
-        self.task_name = task_name
         self.local_udp_ip = local_udp_ip
         self.shared_port = shared_port
         self.num_esps = num_esps
@@ -83,8 +81,6 @@ class GaitMelt:
 
     def analyze_event(self, esp_id, data):
         accState = self.get_acc_state(data, esp_id)
-        acc_x = data[1]
-        acc_y = data[2]
         current_ts = time.time()
         if (
             esp_id == 1
@@ -116,201 +112,41 @@ class GaitMelt:
             self.vibrating[1] = False
             # print("Dejó de vibrar", esp_id)
 
-        if self.task_name == "salto":
+        if (
+            esp_id in [3, 4]  # Sensores 3 y 4
+            and accState == "Boton hacia abajo"
+            # and current_ts - self.last_vibration_esp_ts[esp_id]
+            and current_ts - self.last_vibration_ts > self.time_between_vibrations
+        ):
+            print(
+                "time diff",
+                # current_ts - self.last_vibration_esp_ts[esp_id],
+                current_ts - self.last_vibration_ts,
+            )
+            print("------------------------------------------")
             if (
-                accState == "Boton hacia abajo"
-                and ((acc_y - 9.8) > self.thy)
-                and not self.vibrating[0]
-                and current_ts - self.last_vibration_ts[0]
+                esp_id == 3
+                # and current_ts - self.last_vibration_esp_ts[4]
+                and current_ts - self.last_vibration_ts
                 > self.time_between_vibrations
                 and not self.reading_mode
             ):
-                print(
-                    f"Salto {len(self.mark_times_1)}",
-                    "time diff",
-                    current_ts - self.last_vibration_ts[0],
-                    "acc_y",
-                    (acc_y - 9.8),
-                )
-                print("------------------------------------------")
                 self.mark_times_1.append(data[7])
-                self.activate_selected_motors([1, 2])
-                self.last_vibration_ts[0] = current_ts
-
-        elif self.task_name == "caminata":
-            self.diff_heel_time[0] = current_ts - self.last_heel_ts[0]
-            self.diff_heel_time[1] = current_ts - self.last_heel_ts[1]
-            # Activacion vibracion silenciosa
-            if (
-                self.last_heel_ts != 0
-                and len(self.esp_steps) >= 2
-                # and self.esp_len_vibration != len(self.esp_steps)
+                self.activate_selected_motors([1, 4])
+            elif (
+                esp_id == 4
+                # and current_ts - self.last_vibration_esp_ts[3]
+                and current_ts - self.last_vibration_ts
+                > self.time_between_vibrations
+                and not self.reading_mode
             ):
-                if (
-                    self.diff_heel_time[0] >= self.min_duration_between_heels[0]
-                    and self.esp_steps[-1] == 2
-                    and not self.vibrating[0]
-                    # and self.last_vibration_esp != 2
-                    and current_ts - self.last_vibration_ts[0]
-                    > self.time_between_vibrations
-                    and not self.reading_mode
-                ):
-                    print(
-                        "Demoró mucho talon 1", "diff_heel_time", self.diff_heel_time,
-                    )
-                    self.esp_steps = []
-                    self.last_vibration_ts[0] = current_ts
-                    self.last_vibration_esp = 1
-                    self.activate_selected_motors([1])
-                    self.vibration_times[0].append(data[7])
-                    # self.esp_len_vibration = len(self.esp_steps)
-                if (
-                    self.diff_heel_time[1] >= self.min_duration_between_heels[1]
-                    and self.esp_steps[-1] == 1
-                    and not self.vibrating[1]
-                    # and self.last_vibration_esp != 1
-                    and current_ts - self.last_vibration_ts[1]
-                    > self.time_between_vibrations
-                    and not self.reading_mode
-                ):
-                    print(
-                        "Demoró mucho talon 2", "diff_heel_time", self.diff_heel_time,
-                    )
-                    self.esp_steps = []
-                    self.last_vibration_ts[1] = current_ts
-                    self.last_vibration_esp = 2
-                    # agregar offset para activar vibracion ruidosa xD
-                    self.activate_selected_motors([2])
-                    self.vibration_times[1].append(data[7])
-                    # self.esp_len_vibration = len(self.esp_steps)
-
-            # Detección talon
-            if (
-                acc_x > self.thy
-                # and not self.vibrating[esp_id-1] #debe ser vibrating del ESP del evento talón
-            ):
-                # Primer paso
-                if len(self.esp_steps) == 0:
-                    if (
-                        esp_id == 1
-                        and self.diff_heel_time[0]  # diferencia talon izq
-                        > self.time_between_heel_detection
-                    ):
-                        self.esp_steps.append(1)
-                        print("Primer talón 1 izq", acc_x)
-                        self.mark_times_1.append(data[7])
-                        self.last_heel_ts[0] = current_ts
-                    elif (
-                        esp_id == 2
-                        and self.diff_heel_time[1]  # diferencia talon der
-                        > self.time_between_heel_detection
-                    ):
-                        self.esp_steps.append(2)
-                        print("Primero talón 2 der", acc_x)
-                        self.mark_times_2.append(data[7])
-                        self.last_heel_ts[1] = current_ts
-                    #else:
-                    #    print("PRIMER TALON FALLO", esp_id, "diff_heel_time", self.diff_heel_time, "time", data[7])
-
-                    # print("diff_heel_time", self.diff_heel_time)
-                    # print("last_heel_ts", self.last_heel_ts)
-                    # print("acc_x", acc_x)
-                    # print("------------------------------------------")
-                # Segundo paso en adelante
-                else:
-                    # Si el pie es distinto al que ya detectó
-                    if self.esp_steps[-1] != esp_id:
-                        if (
-                            esp_id == 1
-                            and self.diff_heel_time[0]
-                            > self.time_between_heel_detection
-                        ):
-                            self.last_heel_ts[0] = current_ts
-                            self.mark_times_1.append(data[7])
-                            print("Talón 1", "diff_heel_time", self.diff_heel_time, acc_x, data[7])
-                            # print("Pie distinto")
-                            self.esp_steps.append(1)
-                            # print("diff_heel_time", self.diff_heel_time[0])
-                            # print("last_heel_ts", self.last_heel_ts[0])
-                            # print("acc_x", acc_x)
-                            # print("------------------------------------------")
-                        if (
-                            esp_id == 2
-                            and self.diff_heel_time[1]
-                            > self.time_between_heel_detection
-                        ):
-                            self.last_heel_ts[1] = current_ts
-                            self.mark_times_2.append(data[7])
-                            print("Talón 2", "diff_heel_time", self.diff_heel_time, acc_x, data[7])
-                            # print("Pie distinto")
-                            self.esp_steps.append(2)
-                            # print("diff_heel_time", self.diff_heel_time[1])
-                            # print("last_heel_ts", self.last_heel_ts[1])
-                            # print("acc_x", acc_x)
-                            # print("------------------------------------------")
-                        #else:
-                        #    print("TALON PERO ERROR", esp_id, self.diff_heel_time, "time", data[7])
-                        """
-                        else:
-                            print(
-                                "TALON PERO ERROR",
-                                esp_id,
-                                self.diff_heel_time[0],
-                                self.time_between_heel_detection,
-                                self.diff_heel_time[0]
-                                > self.time_between_heel_detection, 
-                                data[7],
-                            )
-                        """
-                    #else:
-                    #    print("MISMO TALON", "time", data[7])
-                    # Si el pie es el mismo (error deteccion)
-                    ##pie igual debería comentarlo, ya que no debería ocurrir por la precision del eje x
-            #elif acc_x < self.thy:
-            #    print("SOLO UMBRAL SE CUMPLE", accState, "time", data[7])
-
-        elif self.task_name == "parkinson":
-            if (
-                esp_id in [3, 4]  # Sensores 3 y 4
-                and accState == "Boton hacia abajo"
-                and ((acc_y - 9.8) > self.thy)
-                # and current_ts - self.last_vibration_esp_ts[esp_id]
-                and current_ts - self.last_vibration_ts > self.time_between_vibrations
-            ):
-                print(
-                    "time diff",
-                    # current_ts - self.last_vibration_esp_ts[esp_id],
-                    current_ts - self.last_vibration_ts,
-                    "acc_y",
-                    (acc_y - 9.8),
-                )
-                print("------------------------------------------")
-                if (
-                    esp_id == 3
-                    # and current_ts - self.last_vibration_esp_ts[4]
-                    and current_ts - self.last_vibration_ts
-                    > self.time_between_vibrations
-                    and not self.reading_mode
-                ):
-                    self.mark_times_1.append(data[7])
-                    self.activate_selected_motors([1, 4])
-                elif (
-                    esp_id == 4
-                    # and current_ts - self.last_vibration_esp_ts[3]
-                    and current_ts - self.last_vibration_ts
-                    > self.time_between_vibrations
-                    and not self.reading_mode
-                ):
-                    self.mark_times_2.append(data[7])
-                    self.activate_selected_motors([2, 3])
-                self.last_vibration_ts = current_ts
-                # self.last_vibration_esp_ts[esp_id] = current_ts
-                print(
-                    f"ESP3: {len(self.mark_times_1)} - ESP4: {len(self.mark_times_2)} - Talon ESP: {esp_id}"
-                )
-        else:
-            print(self.task_name)
-            print("Tarea desconocida")
+                self.mark_times_2.append(data[7])
+                self.activate_selected_motors([2, 3])
+            self.last_vibration_ts = current_ts
+            # self.last_vibration_esp_ts[esp_id] = current_ts
+            print(
+                f"ESP3: {len(self.mark_times_1)} - ESP4: {len(self.mark_times_2)} - Talon ESP: {esp_id}"
+            )
 
     def update_reading_mode(self):
         self.reading_mode = not self.reading_mode
@@ -527,11 +363,6 @@ class GaitMelt:
             concurrent.futures.wait(futures)
 
     def activate_selected_motors(self, selected_esp_indexes):
-        #print(
-        #    "sending vibration",
-        #    selected_esp_indexes,
-        #    "motor" + str(self.vibration_offset),
-        #)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(
