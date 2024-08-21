@@ -103,6 +103,22 @@ vc_slider = tk.Scale(
 vc_slider.set(alternate_change.vibration_cadence)
 vc_slider.grid(row=5, column=1, columnspan=2)
 
+# Slider para acc_y_threshold (ThY)
+motor_power_slider_label = tk.Label(root, text="Potencia motor")
+motor_power_slider_label.grid(row=8, column=1, columnspan=4, pady=(20, 0))
+
+motor_power_slider = tk.Scale(
+    root,
+    from_=10,
+    resolution=10,
+    to=250,
+    orient="horizontal",
+    length=200,
+    command=lambda value: alternate_change.update_motor_power(motor_power_slider.get()),
+)
+motor_power_slider.set(alternate_change.motor_power)
+motor_power_slider.grid(row=9, column=1, columnspan=2)
+
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * 4
 data_queue = queue.Queue()
