@@ -54,6 +54,10 @@ class AlternateChange:
         self.vibration_cadence = int(new_vc)
         self.set_selected_motors_vibration_time()
 
+    def update_motor_power(self, new_motor_power):
+        self.motor_power = int(new_motor_power)
+        self.set_selected_motors_motor_power()
+
     def alternate_vibrate(self, esp_id):
         current_ts = time.time()
         if (
@@ -199,12 +203,17 @@ class AlternateChange:
         self.vibrating = [False for _ in range(4)]
 
     def init_alternate_vibration(self, init_button):
+        self.save_data_to_csv()
+        final_csv_filename = self.clean_and_rename_csv()
+        self.plot_data(final_csv_filename)
+        #self.plot_data_x(final_csv_filename)
         self.reinitialize_gaitmelt_variables()
+        os.remove(self.output_folder + "recorded_data.csv")
+
         init_button.config(text="Iniciar", bg="green", fg="white")
 
     def stop_alternate_vibration(self, init_button):
-        self.start_time = None
-        self.recorded_data = []
+        self.reinitialize_gaitmelt_variables
         init_button.config(text="Detener", bg="red", fg="white")
 
     def toggle_alternative_vibration(self, init_button):
@@ -213,7 +222,43 @@ class AlternateChange:
             self.stop_alternate_vibration(init_button)
         else:
             self.init_alternate_vibration(init_button)
+    
+    def save_data_to_csv(self):
+        with open(self.output_folder + "recorded_data.csv", "w", newline="") as csvfile:
+            csvwriter = csv.writer(csvfile)
+            header = ["elapsed_time"]
+            for i in self.esp_indexes:
+                header.extend(
+                    [
+                        f"ts_{i}",
+                        f"acc_x_{i}",
+                        f"acc_y_{i}",
+                        f"acc_z_{i}",
+                        f"gyr_x_{i}",
+                        f"gyr_y_{i}",
+                        f"gyr_z_{i}",
+                    ]
+                )
+            csvwriter.writerow(header)
+            csvwriter.writerows(self.recorded_data)
 
+    def clean_and_rename_csv(self):
+        df = pd.read_csv(self.output_folder + "recorded_data.csv", delimiter=",")
+        ts_columns = ["ts_1", "ts_2"]
+        if self.num_esps == 4:
+            ts_columns = [
+                "ts_1",
+                "ts_2",
+                "ts_3",
+                "ts_4",
+            ]
+        for column in ts_columns:
+            df = df.drop_duplicates(subset=[column])
+        df.insert(0, "index", range(len(df)))
+        filename = f"{self.output_filename}.csv"
+        df.to_csv(self.output_folder + "/" + filename, index=False)
+        return filename
+    
     def send_esp_message(self, IP, message):
         try:
             self.sock.sendto(message.encode(), (IP, self.shared_port))
@@ -243,6 +288,215 @@ class AlternateChange:
                 for esp in self.esp_indexes
             ]
             concurrent.futures.wait(futures)
+
+    def set_selected_motors_motor_power(self):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self.send_esp_message,
+                    self.esp_ips[esp],
+                    "power" + str(int(self.motor_power)),
+                )
+                for esp in self.esp_indexes
+            ]
+            concurrent.futures.wait(futures)
+    
+    def plot_data(self, csv_filename):
+        # Lee el archivo CSV
+        accSetColors = ["red", "blue", "green"]
+        gyrSetColors = ["purple", "orange", "pink"]
+
+        acc_y_lims = (-25, 25)
+        gyr_y_lims = (-5, 5)
+
+        try:
+            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
+        except FileNotFoundError:
+            print("Error: Archivo no encontrado.")
+            return
+
+        fig, axs = plt.subplots(
+            self.num_esps, 2, figsize=(12, 8), sharex="col", sharey="row"
+        )
+
+        if self.num_esps == 4:
+
+            sensor_titles = [
+                "Sensor 1 - Muslo Izquierdo",
+                "Sensor 2 - Muslo Derecho",
+                "Sensor 3 - Gemelo Izquierdo",
+                "Sensor 4 - Gemelo Derecho",
+            ]
+
+            # Plot para acc_data
+            axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+            axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
+            axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
+            axs[0, 0].set_title(f"{sensor_titles[0]}")
+            axs[0, 0].set_ylabel("Aceleración")
+            axs[0, 0].legend(loc="lower left")
+            axs[0, 0].set_ylim(acc_y_lims)
+
+            axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+            axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
+            axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
+            axs[0, 1].set_title(f"{sensor_titles[1]}")
+            axs[0, 1].set_ylabel("Aceleración")
+            axs[0, 1].legend(loc="lower left")
+            axs[0, 1].set_ylim(acc_y_lims)
+
+            axs[1, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
+            axs[1, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
+            axs[1, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
+            axs[1, 0].set_title(f"{sensor_titles[2]}")
+            axs[1, 0].set_ylabel("Aceleración")
+            axs[1, 0].legend(loc="lower left")
+            axs[1, 0].set_ylim(acc_y_lims)
+
+            axs[1, 1].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
+            axs[1, 1].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
+            axs[1, 1].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
+            axs[1, 1].set_title(f"{sensor_titles[3]}")
+            axs[1, 1].set_ylabel("Aceleración")
+            axs[1, 1].legend(loc="lower left")
+            axs[1, 1].set_ylim(acc_y_lims)
+
+            # Plot para gyr_data
+            axs[2, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
+            axs[2, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
+            axs[2, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
+            axs[2, 0].set_title(f"{sensor_titles[0]}")
+            axs[2, 0].set_ylabel("Giroscopio")
+            axs[2, 0].legend(loc="lower left")
+            axs[2, 0].set_ylim(gyr_y_lims)
+
+            axs[2, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
+            axs[2, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
+            axs[2, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
+            axs[2, 1].set_title(f"{sensor_titles[1]}")
+            axs[2, 1].set_ylabel("Giroscopio")
+            axs[2, 1].legend(loc="lower left")
+            axs[2, 1].set_ylim(gyr_y_lims)
+
+            axs[3, 0].plot(df["ts_1"], df["gyr_x_3"], label="x", color=gyrSetColors[0])
+            axs[3, 0].plot(df["ts_1"], df["gyr_y_3"], label="y", color=gyrSetColors[1])
+            axs[3, 0].plot(df["ts_1"], df["gyr_z_3"], label="z", color=gyrSetColors[2])
+            axs[3, 0].set_title(f"{sensor_titles[2]}")
+            axs[3, 0].set_ylabel("Giroscopio")
+            axs[3, 0].legend(loc="lower left")
+            axs[3, 0].set_ylim(gyr_y_lims)
+
+            axs[3, 1].plot(df["ts_1"], df["gyr_x_4"], label="x", color=gyrSetColors[0])
+            axs[3, 1].plot(df["ts_1"], df["gyr_y_4"], label="y", color=gyrSetColors[1])
+            axs[3, 1].plot(df["ts_1"], df["gyr_z_4"], label="z", color=gyrSetColors[2])
+            axs[3, 1].set_title(f"{sensor_titles[3]}")
+            axs[3, 1].set_ylabel("Giroscopio")
+            axs[3, 1].legend(loc="lower left")
+            axs[3, 1].set_ylim(gyr_y_lims)
+
+        else:
+            sensor_titles = [
+                "Sensor 1 - Muslo Izquierdo",
+                "Sensor 2 - Muslo Derecho",
+            ]
+
+            # Plot para acc_data
+            axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+            axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
+            axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
+            axs[0, 0].set_title(f"{sensor_titles[0]}")
+            axs[0, 0].set_ylabel("Aceleración")
+            axs[0, 0].legend(loc="lower left")
+            axs[0, 0].set_ylim(acc_y_lims)
+            axs[0, 0].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
+            axs[0, 0].set_ylim(acc_y_lims)
+
+            axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+            axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
+            axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
+            axs[0, 1].set_title(f"{sensor_titles[1]}")
+            axs[0, 1].set_ylabel("Aceleración")
+            axs[0, 1].legend(loc="lower left")
+            axs[0, 1].set_ylim(acc_y_lims)
+            axs[0, 1].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
+            axs[0, 1].set_ylim(acc_y_lims)
+
+            # Plot para gyr_data
+            axs[1, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
+            axs[1, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
+            axs[1, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
+            axs[1, 0].set_title(f"{sensor_titles[0]}")
+            axs[1, 0].set_ylabel("Giroscopio")
+            axs[1, 0].legend(loc="lower left")
+            axs[1, 0].set_ylim(gyr_y_lims)
+
+            axs[1, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
+            axs[1, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
+            axs[1, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
+            axs[1, 1].set_title(f"{sensor_titles[1]}")
+            axs[1, 1].set_ylabel("Giroscopio")
+            axs[1, 1].legend(loc="lower left")
+            axs[1, 1].set_ylim(gyr_y_lims)
+
+        fig.supxlabel("Tiempo [s]")
+
+        # Ajustar el diseño
+        suptitle = csv_filename.split(".")[0]
+
+        plt.suptitle(suptitle)
+        plt.tight_layout()
+        plt.savefig(
+            self.output_folder + "/" + suptitle + ".png"
+        )  # Guardar el gráfico como una imagen PNG
+        plt.show()
+
+    def plot_data_x(self, csv_filename):
+        # Lee el archivo CSV
+        accSetColors = ["blue"]
+
+        acc_y_lims = (-25, 25)
+
+        try:
+            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
+        except FileNotFoundError:
+            print("Error: Archivo no encontrado.")
+            return
+
+        fig, axs = plt.subplots(
+            self.num_esps, 1, figsize=(12, 8), sharex="col", sharey="row"
+        )
+        sensor_titles = [
+            "Sensor 1 - Gemelo Izquierdo",
+            "Sensor 2 - Gemelo Derecho",
+        ]
+
+        # Plot para acc_data
+        axs[0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+        axs[0].set_title(f"{sensor_titles[0]}")
+        axs[0].set_ylabel("Aceleración")
+        axs[0].legend(loc="lower left")
+        axs[0].set_ylim(acc_y_lims)
+        axs[0].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
+
+        axs[1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+        axs[1].set_title(f"{sensor_titles[1]}")
+        axs[1].set_ylabel("Aceleración")
+        axs[1].legend(loc="lower left")
+        axs[1].set_ylim(acc_y_lims)
+        axs[1].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
+
+        # Plot para gy
+        fig.supxlabel("Tiempo [s]")
+
+        # Ajustar el diseño
+        suptitle = csv_filename.split(".")[0]
+
+        plt.suptitle(suptitle)
+        plt.tight_layout()
+        plt.savefig(
+            self.output_folder + "/" + suptitle + "_x.png"
+        )  # Guardar el gráfico como una imagen PNG
+        plt.show()
 
 
 class GaitMelt:
