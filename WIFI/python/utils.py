@@ -17,6 +17,8 @@ class AlternateChange:
         esp_indexes,
         esp_ips,
         struct_format,
+        output_folder,
+        output_filename,
         motor_power,
         vibration_cadence
     ):
@@ -25,6 +27,8 @@ class AlternateChange:
         self.esp_indexes = esp_indexes
         self.esp_ips = esp_ips
         self.struct_format = struct_format
+        self.output_folder = output_folder
+        self.output_filename = output_filename
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.motor_power = motor_power
         self.vibration_cadence = vibration_cadence
@@ -37,9 +41,10 @@ class AlternateChange:
         self.buffers = [[] for _ in range(4)]
         self.last_vibration_ts = [0 for _ in range(4)]
         self.vibrating = [False for _ in range(4)]
-        # self.sock = self.setup_socket(local_udp_ip, shared_port)
+        self.first_vibration = True
+        self.sock = self.setup_socket(local_udp_ip, shared_port)
 
-        self.vd = 100
+        self.vd = 10
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -52,77 +57,97 @@ class AlternateChange:
 
     def update_vc(self, new_vc):
         self.vibration_cadence = int(new_vc)
+        new_vd = self.vibration_cadence * 0.5
+        self.update_vd(new_vd)
+        self.first_vibration = True
+        self.last_vibration_ts = [0 for _ in range(4)]
+        self.vibrating = [False for _ in range(4)]
+        print(f"Cadencia cambiada a {self.vibration_cadence} ms y tiempo motor cambiado a {new_vd} ms")
+        
+    def update_vd(self, new_vd):
+        self.vd = int(new_vd)
         self.set_selected_motors_vibration_time()
 
     def update_motor_power(self, new_motor_power):
         self.motor_power = int(new_motor_power)
         self.set_selected_motors_motor_power()
 
-    def alternate_vibrate(self, esp_id):
+    def alternate_vibrate(self, esp_id, root):
         current_ts = time.time()
-        if (
-            esp_id == 1
-            and (current_ts - self.last_vibration_ts[0]) * 1000 <= self.vd
-            and not self.vibrating[0]
-        ):
-            self.vibrating[0] = True
-            print("Vibrando... 1 y 4")
-        if (
-            esp_id == 2
-            and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
-            and not self.vibrating[1]
-        ):
-            self.vibrating[1] = True
-            print("Vibrando... 2 y 3")
-
         if (
             esp_id == 1
             and (current_ts - self.last_vibration_ts[0]) * 1000 <= self.vd
             and self.vibrating[0]
         ):
-            self.vibrating[0] = False
-            self.vibrating[3] = False
-            print("Dejó de vibrar... 1 y 4")
+            self.vibrating[0] = True
+            
+            #print("Vibrando... 1 y 4", current_ts)
         if (
             esp_id == 2
             and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
             and self.vibrating[1]
         ):
+            self.vibrating[1] = True
+            #print("Vibrando... 2 y 3", current_ts)
+        if (
+            esp_id == 1
+            and (current_ts - self.last_vibration_ts[0]) * 1000 > self.vd
+            and self.vibrating[0]
+        ):
+            self.vibrating[0] = False
+            root.panels["panel_0"].config(bg="white")
+            root.panels["panel_3"].config(bg="white")
+            #print("Dejó de vibrar... 1 y 4", current_ts)
+        if (
+            esp_id == 2
+            and (current_ts - self.last_vibration_ts[1]) * 1000 > self.vd
+            and self.vibrating[1]
+        ):
             self.vibrating[1] = False
-            self.vibrating[2] = False
-            print("Dejó de vibrar... 2 y 3")
+            root.panels["panel_1"].config(bg="white")
+            root.panels["panel_2"].config(bg="white")
+            #print("Dejó de vibrar... 2 y 3", current_ts)
 
-        if esp_id == 1 and self.last_vibration_ts[0] == 0:  # primera vibracion
-            print("Primera vibracion 1 y 4")
+        if esp_id == 1 and self.last_vibration_ts[0] == 0 and self.first_vibration:  # primera vibracion
             self.last_vibration_ts[0] = current_ts
-            self.last_vibration_ts[1] = current_ts - self.vibration_cadence
+            self.last_vibration_ts[1] = current_ts - (self.vibration_cadence / 1000)
+            print("Primera vibracion 1 y 4", current_ts)
             self.vibrating[0] = True
-            self.activate_selected_motors([1, 4])
+            self.first_vibration = False
+            root.panels["panel_0"].config(bg="green")
+            root.panels["panel_3"].config(bg="green")
+            #self.activate_selected_motors([1, 4])
 
         else:
             if (
                 esp_id == 1
                 and self.last_vibration_ts[0] != 0
                 and not self.vibrating[0]
-                and current_ts - self.last_vibration_ts[0] > self.vibration_cadence
+                and not self.first_vibration
+                and (current_ts - self.last_vibration_ts[0]) * 1000 > self.vibration_cadence * 2
             ):
-                print("Vibracion 1 y 4")
+                print("Vibracion 1 y 4", current_ts)
                 self.last_vibration_ts[0] = current_ts
                 self.vibrating[0] = True
-                self.activate_selected_motors([1, 4])
+                root.panels["panel_0"].config(bg="green")
+                root.panels["panel_3"].config(bg="green")
+                #self.activate_selected_motors([1, 4])
 
             if (
                 esp_id == 2
                 and self.last_vibration_ts[1] != 0
                 and not self.vibrating[1]
-                and current_ts - self.last_vibration_ts[1] > self.vibration_cadence
+                and not self.first_vibration
+                and (current_ts - self.last_vibration_ts[1]) * 1000 > self.vibration_cadence * 2
             ):
-                print("Vibracion 2 y 3")
+                print("Vibracion 2 y 3", current_ts)
                 self.last_vibration_ts[1] = current_ts
                 self.vibrating[1] = True
-                self.activate_selected_motors([2, 3])
+                root.panels["panel_1"].config(bg="green")
+                root.panels["panel_2"].config(bg="green")
+                #self.activate_selected_motors([2, 3])
 
-    def update_data(self, data, label_texts):
+    def update_data(self, data, label_texts, root):
         if self.alternate_vibrating:
             if self.start_time is None:
                 self.start_time = time.time()
@@ -133,30 +158,22 @@ class AlternateChange:
                     self.buffers[esp_id - 1].append(data[esp_id - 1])
 
             while all(self.buffers):
-                tss = [self.buffers[esp_id - 1][0][7] for esp_id in self.esp_indexes]
-                min_ts = min(tss)
-                max_ts = max(tss)
-
-                if max_ts - min_ts <= self.max_time_sync_diff:
-                    record_entry = [elapsed_time]
-                    for esp_id in self.esp_indexes:
-                        synchronized_data = self.buffers[esp_id - 1].pop(0)
-                        record_entry.extend(
-                            [
-                                synchronized_data[7],
-                                synchronized_data[1],
-                                synchronized_data[2],
-                                synchronized_data[3],
-                                synchronized_data[4],
-                                synchronized_data[5],
-                                synchronized_data[6],
-                            ]
-                        )
-                        self.alternate_vibrate(esp_id)
-                    self.recorded_data.append(record_entry)
-                else:
-                    oldest_index = tss.index(min_ts)
-                    self.buffers[oldest_index].pop(0)
+                record_entry = [elapsed_time]
+                for esp_id in self.esp_indexes:
+                    synchronized_data = self.buffers[esp_id - 1].pop(0)
+                    record_entry.extend(
+                        [
+                            synchronized_data[7],
+                            synchronized_data[1],
+                            synchronized_data[2],
+                            synchronized_data[3],
+                            synchronized_data[4],
+                            synchronized_data[5],
+                            synchronized_data[6],
+                        ]
+                    )
+                    self.alternate_vibrate(esp_id, root)
+                self.recorded_data.append(record_entry)
 
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is not None:
@@ -171,8 +188,6 @@ class AlternateChange:
                     f"Gyr Z: {round(data[esp_id - 1][6], 3)}\n"
                     f"Timestamp: {data[esp_id - 1][7]}"
                 )
-            else:
-                label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
 
     def receive_data(self, data_queue, esp_data):
         while True:
@@ -192,36 +207,51 @@ class AlternateChange:
                     self.update_data,
                     data,
                     label_texts,
+                    root,
                 )
 
     def reinitialize_gaitmelt_variables(self):
-        self.alternate_vibrating = False
         self.start_time = None
         self.recorded_data = []
         self.buffers = [[] for _ in range(4)]
         self.last_vibration_ts = [0 for _ in range(4)]
         self.vibrating = [False for _ in range(4)]
+        self.first_vibration = True
 
-    def init_alternate_vibration(self, init_button):
-        self.save_data_to_csv()
-        final_csv_filename = self.clean_and_rename_csv()
-        self.plot_data(final_csv_filename)
+    def stop_alternate_vibration(self, init_button):
+        #self.save_data_to_csv()
+        #final_csv_filename = self.clean_and_rename_csv()
+        #self.plot_data(final_csv_filename)
         #self.plot_data_x(final_csv_filename)
+        #os.remove(self.output_folder + "recorded_data.csv")
         self.reinitialize_gaitmelt_variables()
-        os.remove(self.output_folder + "recorded_data.csv")
 
         init_button.config(text="Iniciar", bg="green", fg="white")
 
-    def stop_alternate_vibration(self, init_button):
-        self.reinitialize_gaitmelt_variables
+    def init_alternate_vibration(self, init_button):
+        self.reinitialize_gaitmelt_variables()
         init_button.config(text="Detener", bg="red", fg="white")
 
     def toggle_alternative_vibration(self, init_button):
-        self.alternate_vibrating = not self.alternate_vibrating
         if self.alternate_vibrating:
+            print("stop")
             self.stop_alternate_vibration(init_button)
+            self.alternate_vibrating = False
         else:
+            print("sync and init")
+            self.sync_devices()
             self.init_alternate_vibration(init_button)
+            self.alternate_vibrating = True
+
+    def sync_devices(self):
+        self.set_selected_motors_vibration_time()
+        self.set_selected_motors_motor_power()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(self.send_esp_message, self.esp_ips[esp], "reset")
+                for esp in self.esp_indexes
+            ]
+            concurrent.futures.wait(futures)
     
     def save_data_to_csv(self):
         with open(self.output_folder + "recorded_data.csv", "w", newline="") as csvfile:
@@ -244,14 +274,12 @@ class AlternateChange:
 
     def clean_and_rename_csv(self):
         df = pd.read_csv(self.output_folder + "recorded_data.csv", delimiter=",")
-        ts_columns = ["ts_1", "ts_2"]
-        if self.num_esps == 4:
-            ts_columns = [
-                "ts_1",
-                "ts_2",
-                "ts_3",
-                "ts_4",
-            ]
+        ts_columns = [
+            "ts_1",
+            "ts_2",
+            "ts_3",
+            "ts_4",
+        ]
         for column in ts_columns:
             df = df.drop_duplicates(subset=[column])
         df.insert(0, "index", range(len(df)))
@@ -316,127 +344,81 @@ class AlternateChange:
             return
 
         fig, axs = plt.subplots(
-            self.num_esps, 2, figsize=(12, 8), sharex="col", sharey="row"
+            4, 2, figsize=(12, 8), sharex="col", sharey="row"
         )
 
-        if self.num_esps == 4:
+        sensor_titles = [
+            "Sensor 1 - Muslo Izquierdo",
+            "Sensor 2 - Muslo Derecho",
+            "Sensor 3 - Gemelo Izquierdo",
+            "Sensor 4 - Gemelo Derecho",
+        ]
 
-            sensor_titles = [
-                "Sensor 1 - Muslo Izquierdo",
-                "Sensor 2 - Muslo Derecho",
-                "Sensor 3 - Gemelo Izquierdo",
-                "Sensor 4 - Gemelo Derecho",
-            ]
+        # Plot para acc_data
+        axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+        axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
+        axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
+        axs[0, 0].set_title(f"{sensor_titles[0]}")
+        axs[0, 0].set_ylabel("Aceleración")
+        axs[0, 0].legend(loc="lower left")
+        axs[0, 0].set_ylim(acc_y_lims)
 
-            # Plot para acc_data
-            axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-            axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
-            axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
-            axs[0, 0].set_title(f"{sensor_titles[0]}")
-            axs[0, 0].set_ylabel("Aceleración")
-            axs[0, 0].legend(loc="lower left")
-            axs[0, 0].set_ylim(acc_y_lims)
+        axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+        axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
+        axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
+        axs[0, 1].set_title(f"{sensor_titles[1]}")
+        axs[0, 1].set_ylabel("Aceleración")
+        axs[0, 1].legend(loc="lower left")
+        axs[0, 1].set_ylim(acc_y_lims)
 
-            axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-            axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
-            axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
-            axs[0, 1].set_title(f"{sensor_titles[1]}")
-            axs[0, 1].set_ylabel("Aceleración")
-            axs[0, 1].legend(loc="lower left")
-            axs[0, 1].set_ylim(acc_y_lims)
+        axs[1, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
+        axs[1, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
+        axs[1, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
+        axs[1, 0].set_title(f"{sensor_titles[2]}")
+        axs[1, 0].set_ylabel("Aceleración")
+        axs[1, 0].legend(loc="lower left")
+        axs[1, 0].set_ylim(acc_y_lims)
 
-            axs[1, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
-            axs[1, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
-            axs[1, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
-            axs[1, 0].set_title(f"{sensor_titles[2]}")
-            axs[1, 0].set_ylabel("Aceleración")
-            axs[1, 0].legend(loc="lower left")
-            axs[1, 0].set_ylim(acc_y_lims)
+        axs[1, 1].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
+        axs[1, 1].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
+        axs[1, 1].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
+        axs[1, 1].set_title(f"{sensor_titles[3]}")
+        axs[1, 1].set_ylabel("Aceleración")
+        axs[1, 1].legend(loc="lower left")
+        axs[1, 1].set_ylim(acc_y_lims)
 
-            axs[1, 1].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
-            axs[1, 1].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
-            axs[1, 1].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
-            axs[1, 1].set_title(f"{sensor_titles[3]}")
-            axs[1, 1].set_ylabel("Aceleración")
-            axs[1, 1].legend(loc="lower left")
-            axs[1, 1].set_ylim(acc_y_lims)
+        # Plot para gyr_data
+        axs[2, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
+        axs[2, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
+        axs[2, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
+        axs[2, 0].set_title(f"{sensor_titles[0]}")
+        axs[2, 0].set_ylabel("Giroscopio")
+        axs[2, 0].legend(loc="lower left")
+        axs[2, 0].set_ylim(gyr_y_lims)
 
-            # Plot para gyr_data
-            axs[2, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
-            axs[2, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
-            axs[2, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
-            axs[2, 0].set_title(f"{sensor_titles[0]}")
-            axs[2, 0].set_ylabel("Giroscopio")
-            axs[2, 0].legend(loc="lower left")
-            axs[2, 0].set_ylim(gyr_y_lims)
+        axs[2, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
+        axs[2, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
+        axs[2, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
+        axs[2, 1].set_title(f"{sensor_titles[1]}")
+        axs[2, 1].set_ylabel("Giroscopio")
+        axs[2, 1].legend(loc="lower left")
+        axs[2, 1].set_ylim(gyr_y_lims)
 
-            axs[2, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
-            axs[2, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
-            axs[2, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
-            axs[2, 1].set_title(f"{sensor_titles[1]}")
-            axs[2, 1].set_ylabel("Giroscopio")
-            axs[2, 1].legend(loc="lower left")
-            axs[2, 1].set_ylim(gyr_y_lims)
+        axs[3, 0].plot(df["ts_1"], df["gyr_x_3"], label="x", color=gyrSetColors[0])
+        axs[3, 0].plot(df["ts_1"], df["gyr_y_3"], label="y", color=gyrSetColors[1])
+        axs[3, 0].plot(df["ts_1"], df["gyr_z_3"], label="z", color=gyrSetColors[2])
+        axs[3, 0].set_title(f"{sensor_titles[2]}")
+        axs[3, 0].set_ylabel("Giroscopio")
+        axs[3, 0].legend(loc="lower left")
+        axs[3, 0].set_ylim(gyr_y_lims)
 
-            axs[3, 0].plot(df["ts_1"], df["gyr_x_3"], label="x", color=gyrSetColors[0])
-            axs[3, 0].plot(df["ts_1"], df["gyr_y_3"], label="y", color=gyrSetColors[1])
-            axs[3, 0].plot(df["ts_1"], df["gyr_z_3"], label="z", color=gyrSetColors[2])
-            axs[3, 0].set_title(f"{sensor_titles[2]}")
-            axs[3, 0].set_ylabel("Giroscopio")
-            axs[3, 0].legend(loc="lower left")
-            axs[3, 0].set_ylim(gyr_y_lims)
-
-            axs[3, 1].plot(df["ts_1"], df["gyr_x_4"], label="x", color=gyrSetColors[0])
-            axs[3, 1].plot(df["ts_1"], df["gyr_y_4"], label="y", color=gyrSetColors[1])
-            axs[3, 1].plot(df["ts_1"], df["gyr_z_4"], label="z", color=gyrSetColors[2])
-            axs[3, 1].set_title(f"{sensor_titles[3]}")
-            axs[3, 1].set_ylabel("Giroscopio")
-            axs[3, 1].legend(loc="lower left")
-            axs[3, 1].set_ylim(gyr_y_lims)
-
-        else:
-            sensor_titles = [
-                "Sensor 1 - Muslo Izquierdo",
-                "Sensor 2 - Muslo Derecho",
-            ]
-
-            # Plot para acc_data
-            axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-            axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
-            axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
-            axs[0, 0].set_title(f"{sensor_titles[0]}")
-            axs[0, 0].set_ylabel("Aceleración")
-            axs[0, 0].legend(loc="lower left")
-            axs[0, 0].set_ylim(acc_y_lims)
-            axs[0, 0].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-            axs[0, 0].set_ylim(acc_y_lims)
-
-            axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-            axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
-            axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
-            axs[0, 1].set_title(f"{sensor_titles[1]}")
-            axs[0, 1].set_ylabel("Aceleración")
-            axs[0, 1].legend(loc="lower left")
-            axs[0, 1].set_ylim(acc_y_lims)
-            axs[0, 1].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-            axs[0, 1].set_ylim(acc_y_lims)
-
-            # Plot para gyr_data
-            axs[1, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
-            axs[1, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
-            axs[1, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
-            axs[1, 0].set_title(f"{sensor_titles[0]}")
-            axs[1, 0].set_ylabel("Giroscopio")
-            axs[1, 0].legend(loc="lower left")
-            axs[1, 0].set_ylim(gyr_y_lims)
-
-            axs[1, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
-            axs[1, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
-            axs[1, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
-            axs[1, 1].set_title(f"{sensor_titles[1]}")
-            axs[1, 1].set_ylabel("Giroscopio")
-            axs[1, 1].legend(loc="lower left")
-            axs[1, 1].set_ylim(gyr_y_lims)
+        axs[3, 1].plot(df["ts_1"], df["gyr_x_4"], label="x", color=gyrSetColors[0])
+        axs[3, 1].plot(df["ts_1"], df["gyr_y_4"], label="y", color=gyrSetColors[1])
+        axs[3, 1].plot(df["ts_1"], df["gyr_z_4"], label="z", color=gyrSetColors[2])
+        axs[3, 1].set_title(f"{sensor_titles[3]}")
+        axs[3, 1].set_ylabel("Giroscopio")
+        axs[3, 1].legend(loc="lower left")
+        axs[3, 1].set_ylim(gyr_y_lims)
 
         fig.supxlabel("Tiempo [s]")
 
@@ -449,55 +431,6 @@ class AlternateChange:
             self.output_folder + "/" + suptitle + ".png"
         )  # Guardar el gráfico como una imagen PNG
         plt.show()
-
-    def plot_data_x(self, csv_filename):
-        # Lee el archivo CSV
-        accSetColors = ["blue"]
-
-        acc_y_lims = (-25, 25)
-
-        try:
-            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
-        except FileNotFoundError:
-            print("Error: Archivo no encontrado.")
-            return
-
-        fig, axs = plt.subplots(
-            self.num_esps, 1, figsize=(12, 8), sharex="col", sharey="row"
-        )
-        sensor_titles = [
-            "Sensor 1 - Gemelo Izquierdo",
-            "Sensor 2 - Gemelo Derecho",
-        ]
-
-        # Plot para acc_data
-        axs[0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-        axs[0].set_title(f"{sensor_titles[0]}")
-        axs[0].set_ylabel("Aceleración")
-        axs[0].legend(loc="lower left")
-        axs[0].set_ylim(acc_y_lims)
-        axs[0].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-
-        axs[1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-        axs[1].set_title(f"{sensor_titles[1]}")
-        axs[1].set_ylabel("Aceleración")
-        axs[1].legend(loc="lower left")
-        axs[1].set_ylim(acc_y_lims)
-        axs[1].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-
-        # Plot para gy
-        fig.supxlabel("Tiempo [s]")
-
-        # Ajustar el diseño
-        suptitle = csv_filename.split(".")[0]
-
-        plt.suptitle(suptitle)
-        plt.tight_layout()
-        plt.savefig(
-            self.output_folder + "/" + suptitle + "_x.png"
-        )  # Guardar el gráfico como una imagen PNG
-        plt.show()
-
 
 class GaitMelt:
     def __init__(
