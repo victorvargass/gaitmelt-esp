@@ -141,7 +141,7 @@ void loop() {
           analogWrite(MOTORINB, 0);
           motorOnTime = millis();
       }      
-      else if (strncmp(incomingPacket, "stop") == 0) {
+      else if (strcmp(incomingPacket, "stop") == 0) {
           analogWrite(MOTORINA, 0);
           analogWrite(MOTORINB, 0);
           motorState = false;
