@@ -140,6 +140,11 @@ void loop() {
           analogWrite(MOTORINA, motorPower);
           analogWrite(MOTORINB, 0);
           motorOnTime = millis();
+      }      
+      else if (strncmp(incomingPacket, "stop") == 0) {
+          analogWrite(MOTORINA, 0);
+          analogWrite(MOTORINB, 0);
+          motorState = false;
       }
       // Comprobamos si el paquete es "power"
       else if (strncmp(incomingPacket, "power", 5) == 0) {
@@ -153,7 +158,7 @@ void loop() {
       else if (strncmp(incomingPacket, "duration", 8) == 0) {
           // Extraemos el valor de duración del mensaje
           int duration = atoi(incomingPacket + 8);
-          if (duration > 0 && duration <= 2000) {
+          if (duration > 0) {
               vibrationDuration = (float)duration;
           }
       }
