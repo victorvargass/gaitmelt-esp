@@ -117,7 +117,7 @@ class AlternateChange:
             self.first_vibration = False
             root.panels["panel_0"].config(bg="green")
             root.panels["panel_3"].config(bg="green")
-            #self.activate_selected_motors([1, 4])
+            self.activate_selected_motors([1, 4])
 
         else:
             if (
@@ -132,7 +132,7 @@ class AlternateChange:
                 self.vibrating[0] = True
                 root.panels["panel_0"].config(bg="green")
                 root.panels["panel_3"].config(bg="green")
-                #self.activate_selected_motors([1, 4])
+                self.activate_selected_motors([1, 4])
 
             if (
                 esp_id == 2
@@ -146,7 +146,7 @@ class AlternateChange:
                 self.vibrating[1] = True
                 root.panels["panel_1"].config(bg="green")
                 root.panels["panel_2"].config(bg="green")
-                #self.activate_selected_motors([2, 3])
+                self.activate_selected_motors([2, 3])
 
     def update_data(self, data, label_texts, root):
         if self.alternate_vibrating:
