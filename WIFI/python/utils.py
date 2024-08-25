@@ -43,6 +43,7 @@ class AlternateChange:
         self.vibrating = [False for _ in range(4)]
         self.first_vibration = True
         self.sock = self.setup_socket(local_udp_ip, shared_port)
+        self.vibration_offset = 0
 
         self.vd = 10
 
