@@ -30,7 +30,7 @@ VIBRATION_OFFSET=None
 
 ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
 
-SCREEN_SIZE = "1300x700" if NUM_ESPS == 2 else "1300x900"
+SCREEN_SIZE = "1600x700" if NUM_ESPS == 2 else "1600x1000"
 
 # Crear una instancia de GaitMelt
 gaitmelt = GaitMelt(
@@ -55,106 +55,67 @@ gaitmelt = GaitMelt(
 # Configurar la interfaz gráfica
 root = tk.Tk()
 root.geometry(SCREEN_SIZE)
+root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 
-# Configurar el layout de la cuadrícula
-for i in range(NUM_ESPS):
-    root.grid_columnconfigure(i, weight=1)
-root.grid_rowconfigure(0, weight=1)
-root.grid_rowconfigure(1, weight=1)
-
-# Crear y ubicar los paneles
 label_texts = [tk.StringVar() for _ in range(NUM_ESPS)]
 for i, text in enumerate(label_texts):
     text.set(f"Board {i+1} no conectada")
 
-panels = [
-    tk.Label(
-        root,
-        textvariable=text,
-        padx=10,
-        pady=10,
-        borderwidth=2,
-        relief="solid",
-        width=50,
-        height=20,
-    )
-    for text in label_texts
-]
+# Configurar la cuadrícula para que sea flexible
+for i in range(2):  # Supone que habrá 2 columnas
+    root.grid_columnconfigure(i, weight=1)
+for i in range((NUM_ESPS + 1) // 2):  # Configura las filas necesarias
+    root.grid_rowconfigure(i, weight=1)
 
-for i, panel in enumerate(panels):
+# Crear y ubicar los paneles con botones
+for i, text in enumerate(label_texts):
+    frame = tk.Frame(root, padx=5, pady=5, borderwidth=2, relief="solid", bg="white")
+    
+    # Label dentro del frame
+    label = tk.Label(frame, textvariable=text, bg="white")
+    label.pack(pady=(10, 5), expand=True, fill='both')
+
+    # Botón dentro del frame
+    button = tk.Button(
+        frame,
+        text=f"Activar vibrador",
+        command=lambda i=i: gaitmelt.activate_selected_motors([i+1]),
+        bg="green",
+        fg="white",
+        font=("Helvetica", 12),
+    )
+    button.pack(pady=(5, 10))
+
     row = i // 2
     col = i % 2
-    panel.grid(row=row, column=col, padx=10, pady=10)
+    frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
-# Configurar botones y elementos adicionales
-motor_button_1 = tk.Button(
-    root,
-    text="Activar vibrador 1",
-    command=lambda: gaitmelt.activate_selected_motors([1]),
-    bg="red",
-    fg="white",
-)
-motor_button_1.grid(row=2, column=0, columnspan=2, pady=(20, 0))
 
-motor_button_2 = tk.Button(
-    root,
-    text="Activar vibrador 2",
-    command=lambda: gaitmelt.activate_selected_motors([2]),
-    bg="red",
-    fg="white",
-)
-motor_button_2.grid(row=3, column=0, columnspan=2, pady=(20, 0))
+# Asegura que las filas bajo los paneles puedan expandirse
+for i in range(NUM_ESPS // 2, 10):  # Configura las filas adicionales necesarias
+    root.grid_rowconfigure(i, weight=0)
 
-if NUM_ESPS == 4:
-    motor_button_3 = tk.Button(
-        root,
-        text="Activar vibrador 3",
-        command=lambda: gaitmelt.activate_selected_motors([3]),
-        bg="red",
-        fg="white",
-    )
-    motor_button_3.grid(row=4, column=0, columnspan=2, pady=(20, 0))
-    motor_button_4 = tk.Button(
-        root,
-        text="Activar vibrador 4",
-        command=lambda: gaitmelt.activate_selected_motors([4]),
-        bg="red",
-        fg="white",
-    )
-    motor_button_4.grid(row=5, column=0, columnspan=2, pady=(20, 0))
+# Ordenar los controles adicionales en una columna debajo de los paneles
+start_row = (NUM_ESPS + 1) // 2  # Comienza justo después de los paneles
 
 all_motors_button = tk.Button(
     root,
     text="Activar todos",
     command=lambda: gaitmelt.activate_selected_motors(ESP_INDEXES),
-    bg="red",
-    fg="white",
-)
-all_motors_button.grid(row=6, column=0, columnspan=2, pady=(20, 0))
-
-label_output_filename = tk.Label(root, text="Nombre del archivo")
-label_output_filename.grid(row=7, column=0, columnspan=2, pady=(20, 0))
-input_output_filename = tk.Entry(root)
-input_output_filename.grid(row=8, column=0, columnspan=2, pady=(20, 0))
-input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
-input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
-
-reading_mode_var = tk.BooleanVar()
-reading_mode_var.set(READING_MODE)
-toggle_button = tk.Checkbutton(root, text="Modo de Lectura", variable=reading_mode_var, 
-                               command=gaitmelt.update_reading_mode)
-toggle_button.grid(row=9, column=0, columnspan=2, pady=(20, 0))
-
-
-record_button = tk.Button(
-    root,
-    text="Iniciar grabación",
-    command=lambda: gaitmelt.toggle_recording(record_button),
     bg="green",
     fg="white",
 )
-record_button.grid(row=2, column=1, columnspan=2, pady=(20, 0))
+all_motors_button.grid(row=start_row, column=0, columnspan=2, pady=(20, 0))
+
+all_motors_stop_button = tk.Button(
+    root,
+    text="Detener todos",
+    command=lambda: gaitmelt.stop_selected_motors(ESP_INDEXES),
+    bg="red",
+    fg="white",
+)
+all_motors_stop_button.grid(row=start_row + 1, column=0, columnspan=2, pady=(20, 0))
 
 sync_button = tk.Button(
     root,
@@ -163,42 +124,26 @@ sync_button = tk.Button(
     bg="yellow",
     fg="white",
 )
-sync_button.grid(row=3, column=1, columnspan=2, pady=(20, 0))
+sync_button.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
 
-# Slider para acc_y_threshold (ThY)
-thy_slider_label = tk.Label(root, text="Umbral Eje Y Acelerómetro")
-thy_slider_label.grid(row=4, column=1, columnspan=4, pady=(20, 0))
-
-thy_slider = tk.Scale(
-    root,
-    from_=-20,
-    resolution=0.1,
-    to=15,
-    orient="horizontal",
-    length=200,
-    command=lambda value: gaitmelt.update_thy(thy_slider.get()),
-)
-thy_slider.set(gaitmelt.thy)
-thy_slider.grid(row=5, column=1, columnspan=2)
-
-vd_slider_label = tk.Label(root, text="Duración vibración [ms]")
-vd_slider_label.grid(row=6, column=1, columnspan=4, pady=(20, 0))
+vd_slider_label = tk.Label(root, text="Duración vibración [ms]", bg="white")
+vd_slider_label.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
 
 vd_slider = tk.Scale(
     root,
     from_=10,
     resolution=10,
-    to=2000,
+    to=20000,
     orient="horizontal",
     length=200,
+    bg="white",
     command=lambda value: gaitmelt.update_vd(vd_slider.get()),
 )
 vd_slider.set(gaitmelt.vd)
-vd_slider.grid(row=7, column=1, columnspan=2)
+vd_slider.grid(row=start_row + 4, column=0, columnspan=2)
 
-# Slider para acc_y_threshold (ThY)
-motor_power_slider_label = tk.Label(root, text="Potencia motor")
-motor_power_slider_label.grid(row=8, column=1, columnspan=4, pady=(20, 0))
+motor_power_slider_label = tk.Label(root, text="Potencia motor", bg="white")
+motor_power_slider_label.grid(row=start_row + 5, column=0, columnspan=2, pady=(20, 0))
 
 motor_power_slider = tk.Scale(
     root,
@@ -207,10 +152,35 @@ motor_power_slider = tk.Scale(
     to=250,
     orient="horizontal",
     length=200,
+    bg="white",
     command=lambda value: gaitmelt.update_motor_power(motor_power_slider.get()),
 )
 motor_power_slider.set(gaitmelt.motor_power)
-motor_power_slider.grid(row=9, column=1, columnspan=2)
+motor_power_slider.grid(row=start_row + 6, column=0, columnspan=2)
+
+
+label_output_filename = tk.Label(root, text="Nombre del archivo", bg="white")
+label_output_filename.grid(row=start_row, column=1, columnspan=2, pady=(20, 0))
+
+input_output_filename = tk.Entry(root)
+input_output_filename.grid(row=start_row + 1, column=1, columnspan=3, pady=(20, 0))
+input_output_filename.insert(0, OUTPUT_FILENAME)
+input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
+
+record_button = tk.Button(
+    root,
+    text="Iniciar grabación",
+    command=lambda: gaitmelt.toggle_recording(record_button),
+    bg="green",
+    fg="white",
+)
+record_button.grid(row=start_row + 2, column=1, columnspan=2, pady=(20, 0))
+
+reading_mode_var = tk.BooleanVar()
+reading_mode_var.set(READING_MODE)
+toggle_button = tk.Checkbutton(root, text="Modo de Lectura", variable=reading_mode_var, 
+                               command=gaitmelt.update_reading_mode, bg="white")
+toggle_button.grid(row=start_row + 3, column=1, columnspan=2, pady=(20, 0))
 
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * NUM_ESPS

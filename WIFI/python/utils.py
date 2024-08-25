@@ -181,12 +181,10 @@ class AlternateChange:
                 board_id = data[esp_id - 1][0]
                 label_texts[esp_id - 1].set(
                     f"Board ID: {board_id}\n"
-                    f"Acc X: {round(data[esp_id - 1][1], 3)}\n"
-                    f"Acc Y: {round(data[esp_id - 1][2], 3)}\n"
-                    f"Acc Z: {round(data[esp_id - 1][3], 3)}\n"
-                    f"Gyr X: {round(data[esp_id - 1][4], 3)}\n"
-                    f"Gyr Y: {round(data[esp_id - 1][5], 3)}\n"
-                    f"Gyr Z: {round(data[esp_id - 1][6], 3)}\n"
+                    f" Acc      Gyr\n"
+                    f"X  {round(data[esp_id - 1][1], 2):<7}   {round(data[esp_id - 1][4], 2):<7}\n"
+                    f"Y  {round(data[esp_id - 1][2], 2):<7}   {round(data[esp_id - 1][5], 2):<7}\n"
+                    f"Z  {round(data[esp_id - 1][3], 2):<7}   {round(data[esp_id - 1][6], 2):<7}\n"
                     f"Timestamp: {data[esp_id - 1][7]}"
                 )
 
@@ -301,6 +299,18 @@ class AlternateChange:
                     self.send_esp_message,
                     self.esp_ips[esp],
                     "motor" + str(self.vibration_offset),
+                )
+                for esp in selected_esp_indexes
+            ]
+            concurrent.futures.wait(futures)
+
+    def stop_selected_motors(self, selected_esp_indexes):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self.send_esp_message,
+                    self.esp_ips[esp],
+                    "stop",
                 )
                 for esp in selected_esp_indexes
             ]
@@ -478,7 +488,7 @@ class GaitMelt:
         self.mark_times_2 = []
         self.vibration_times = [[] for _ in range(num_esps)]
         self.buffers = [[] for _ in range(num_esps)]
-        #self.sock = self.setup_socket(local_udp_ip, shared_port)
+        self.sock = self.setup_socket(local_udp_ip, shared_port)
 
         # Variables caminata
         self.esp_steps = []  # Lista de indices para saber que esp tocó talon
@@ -702,12 +712,10 @@ class GaitMelt:
                 board_id = data[esp_id - 1][0]
                 label_texts[esp_id - 1].set(
                     f"Board ID: {board_id}\n"
-                    f"Acc X: {round(data[esp_id - 1][1], 3)}\n"
-                    f"Acc Y: {round(data[esp_id - 1][2], 3)}\n"
-                    f"Acc Z: {round(data[esp_id - 1][3], 3)}\n"
-                    f"Gyr X: {round(data[esp_id - 1][4], 3)}\n"
-                    f"Gyr Y: {round(data[esp_id - 1][5], 3)}\n"
-                    f"Gyr Z: {round(data[esp_id - 1][6], 3)}\n"
+                    f"  Acc      Gyr\n"
+                    f"X  {round(data[esp_id - 1][1], 2):<7}   {round(data[esp_id - 1][4], 2):<7}\n"
+                    f"Y  {round(data[esp_id - 1][2], 2):<7}   {round(data[esp_id - 1][5], 2):<7}\n"
+                    f"Z  {round(data[esp_id - 1][3], 2):<7}   {round(data[esp_id - 1][6], 2):<7}\n"
                     f"Timestamp: {data[esp_id - 1][7]}"
                 )
             else:
@@ -792,6 +800,18 @@ class GaitMelt:
                     self.send_esp_message,
                     self.esp_ips[esp],
                     "motor" + str(self.vibration_offset),
+                )
+                for esp in selected_esp_indexes
+            ]
+            concurrent.futures.wait(futures)
+
+    def stop_selected_motors(self, selected_esp_indexes):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self.send_esp_message,
+                    self.esp_ips[esp],
+                    "stop",
                 )
                 for esp in selected_esp_indexes
             ]
