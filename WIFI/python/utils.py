@@ -541,6 +541,18 @@ class GaitMelt:
             ]
             concurrent.futures.wait(futures)
 
+    def stop_selected_motors(self, selected_esp_indexes):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(
+                    self.send_esp_message,
+                    self.esp_ips[esp],
+                    "stop",
+                )
+                for esp in selected_esp_indexes
+            ]
+            concurrent.futures.wait(futures)
+
     def set_selected_motors_vibration_time(self):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
