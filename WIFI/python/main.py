@@ -138,33 +138,19 @@ all_motors_button = tk.Button(
     root,
     text="Activar todos",
     command=lambda: gaitmelt.activate_selected_motors(ESP_INDEXES),
-    bg="red",
-    fg="white",
-)
-all_motors_button.grid(row=6, column=0, columnspan=2, pady=(20, 0))
-
-label_output_filename = tk.Label(root, text="Nombre del archivo")
-label_output_filename.grid(row=7, column=0, columnspan=2, pady=(20, 0))
-input_output_filename = tk.Entry(root)
-input_output_filename.grid(row=8, column=0, columnspan=2, pady=(20, 0))
-input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
-input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
-
-reading_mode_var = tk.BooleanVar()
-reading_mode_var.set(READING_MODE)
-toggle_button = tk.Checkbutton(root, text="Modo de Lectura", variable=reading_mode_var, 
-                               command=gaitmelt.update_reading_mode)
-toggle_button.grid(row=9, column=0, columnspan=2, pady=(20, 0))
-
-
-record_button = tk.Button(
-    root,
-    text="Iniciar grabación",
-    command=lambda: gaitmelt.toggle_recording(record_button),
     bg="green",
     fg="white",
 )
-record_button.grid(row=2, column=1, columnspan=2, pady=(20, 0))
+all_motors_button.grid(row=start_row, column=0, columnspan=2, pady=(20, 0))
+
+all_motors_stop_button = tk.Button(
+    root,
+    text="Detener todos",
+    command=lambda: gaitmelt.stop_selected_motors(ESP_INDEXES),
+    bg="red",
+    fg="white",
+)
+all_motors_stop_button.grid(row=start_row + 1, column=0, columnspan=2, pady=(20, 0))
 
 sync_button = tk.Button(
     root,
@@ -173,42 +159,26 @@ sync_button = tk.Button(
     bg="yellow",
     fg="white",
 )
-sync_button.grid(row=3, column=1, columnspan=2, pady=(20, 0))
+sync_button.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
 
-# Slider para acc_y_threshold (ThY)
-thy_slider_label = tk.Label(root, text="Umbral Eje Y Acelerómetro")
-thy_slider_label.grid(row=4, column=1, columnspan=4, pady=(20, 0))
-
-thy_slider = tk.Scale(
-    root,
-    from_=-20,
-    resolution=0.1,
-    to=15,
-    orient="horizontal",
-    length=200,
-    command=lambda value: gaitmelt.update_thy(thy_slider.get()),
-)
-thy_slider.set(gaitmelt.thy)
-thy_slider.grid(row=5, column=1, columnspan=2)
-
-vd_slider_label = tk.Label(root, text="Duración vibración [ms]")
-vd_slider_label.grid(row=6, column=1, columnspan=4, pady=(20, 0))
+vd_slider_label = tk.Label(root, text="Duración vibración [ms]", bg="white")
+vd_slider_label.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
 
 vd_slider = tk.Scale(
     root,
     from_=10,
     resolution=10,
-    to=2000,
+    to=20000,
     orient="horizontal",
     length=200,
+    bg="white",
     command=lambda value: gaitmelt.update_vd(vd_slider.get()),
 )
 vd_slider.set(gaitmelt.vd)
-vd_slider.grid(row=7, column=1, columnspan=2)
+vd_slider.grid(row=start_row + 4, column=0, columnspan=2)
 
-# Slider para acc_y_threshold (ThY)
-motor_power_slider_label = tk.Label(root, text="Potencia motor")
-motor_power_slider_label.grid(row=8, column=1, columnspan=4, pady=(20, 0))
+motor_power_slider_label = tk.Label(root, text="Potencia motor", bg="white")
+motor_power_slider_label.grid(row=start_row + 5, column=0, columnspan=2, pady=(20, 0))
 
 motor_power_slider = tk.Scale(
     root,
@@ -217,10 +187,53 @@ motor_power_slider = tk.Scale(
     to=250,
     orient="horizontal",
     length=200,
+    bg="white",
     command=lambda value: gaitmelt.update_motor_power(motor_power_slider.get()),
 )
 motor_power_slider.set(gaitmelt.motor_power)
-motor_power_slider.grid(row=9, column=1, columnspan=2)
+motor_power_slider.grid(row=start_row + 6, column=0, columnspan=2)
+
+
+label_output_filename = tk.Label(root, text="Nombre del archivo", bg="white")
+label_output_filename.grid(row=start_row, column=1, columnspan=2, pady=(20, 0))
+
+input_output_filename = tk.Entry(root)
+input_output_filename.grid(row=start_row + 1, column=1, columnspan=3, pady=(20, 0))
+input_output_filename.insert(0, OUTPUT_FILENAME)
+input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
+
+record_button = tk.Button(
+    root,
+    text="Iniciar grabación",
+    command=lambda: gaitmelt.toggle_recording(record_button),
+    bg="green",
+    fg="white",
+)
+record_button.grid(row=start_row + 2, column=1, columnspan=2, pady=(20, 0))
+
+reading_mode_var = tk.BooleanVar()
+reading_mode_var.set(READING_MODE)
+toggle_button = tk.Checkbutton(root, text="Modo de Lectura", variable=reading_mode_var, 
+                               command=gaitmelt.update_reading_mode, bg="white")
+toggle_button.grid(row=start_row + 3, column=1, columnspan=2, pady=(20, 0))
+
+
+# Slider para acc_y_threshold (ThY)
+thy_slider_label = tk.Label(root, text="Umbral Abs Acc", bg="white")
+thy_slider_label.grid(row=start_row + 5, column=1, columnspan=4, pady=(20, 0))
+
+thy_slider = tk.Scale(
+    root,
+    from_=-20,
+    resolution=0.1,
+    to=15,
+    orient="horizontal",
+    length=200,
+    bg="white",
+    command=lambda value: gaitmelt.update_thy(thy_slider.get()),
+)
+thy_slider.set(gaitmelt.thy)
+thy_slider.grid(row=start_row + 6, column=1, columnspan=2)
 
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * NUM_ESPS
