@@ -43,6 +43,7 @@ class AlternateChange:
         self.vibrating = [False for _ in range(4)]
         self.first_vibration = True
         self.sock = self.setup_socket(local_udp_ip, shared_port)
+        self.vibration_offset = 0
 
         self.vd = 10
 
@@ -57,7 +58,7 @@ class AlternateChange:
 
     def update_vc(self, new_vc):
         self.vibration_cadence = int(new_vc)
-        new_vd = self.vibration_cadence * 0.5
+        new_vd = self.vibration_cadence * 0.5 #editar o poner otro slider
         self.update_vd(new_vd)
         self.first_vibration = True
         self.last_vibration_ts = [0 for _ in range(4)]
@@ -116,7 +117,7 @@ class AlternateChange:
             self.first_vibration = False
             root.panels["panel_0"].config(bg="green")
             root.panels["panel_3"].config(bg="green")
-            #self.activate_selected_motors([1, 4])
+            self.activate_selected_motors([1, 4])
 
         else:
             if (
@@ -131,7 +132,7 @@ class AlternateChange:
                 self.vibrating[0] = True
                 root.panels["panel_0"].config(bg="green")
                 root.panels["panel_3"].config(bg="green")
-                #self.activate_selected_motors([1, 4])
+                self.activate_selected_motors([1, 4])
 
             if (
                 esp_id == 2
@@ -145,7 +146,7 @@ class AlternateChange:
                 self.vibrating[1] = True
                 root.panels["panel_1"].config(bg="green")
                 root.panels["panel_2"].config(bg="green")
-                #self.activate_selected_motors([2, 3])
+                self.activate_selected_motors([2, 3])
 
     def update_data(self, data, label_texts, root):
         if self.alternate_vibrating:
@@ -217,11 +218,11 @@ class AlternateChange:
         self.first_vibration = True
 
     def stop_alternate_vibration(self, init_button):
-        #self.save_data_to_csv()
-        #final_csv_filename = self.clean_and_rename_csv()
+        self.save_data_to_csv()
+        final_csv_filename = self.clean_and_rename_csv()
         #self.plot_data(final_csv_filename)
         #self.plot_data_x(final_csv_filename)
-        #os.remove(self.output_folder + "recorded_data.csv")
+        os.remove(self.output_folder + "recorded_data.csv")
         self.reinitialize_gaitmelt_variables()
 
         init_button.config(text="Iniciar", bg="green", fg="white")
@@ -564,7 +565,7 @@ class GaitMelt:
                 and not self.reading_mode
             ):
                 self.mark_times_1.append(data[7])
-                self.activate_selected_motors([1, 4])
+                #self.activate_selected_motors([1, 4])
             elif (
                 esp_id == 4
                 # and current_ts - self.last_vibration_esp_ts[3]
@@ -573,7 +574,7 @@ class GaitMelt:
                 and not self.reading_mode
             ):
                 self.mark_times_2.append(data[7])
-                self.activate_selected_motors([2, 3])
+                #self.activate_selected_motors([2, 3])
             self.last_vibration_ts = current_ts
             # self.last_vibration_esp_ts[esp_id] = current_ts
             print(
@@ -700,7 +701,7 @@ class GaitMelt:
                                 synchronized_data[6],
                             ]
                         )
-                        self.analyze_event(esp_id, synchronized_data)
+                        #self.analyze_event(esp_id, synchronized_data)
                     self.recorded_data.append(record_entry)
                 else:
                     oldest_index = tss.index(min_ts)
@@ -756,9 +757,9 @@ class GaitMelt:
     def init_recording(self, record_button):
         self.save_data_to_csv()
         final_csv_filename = self.clean_and_rename_csv()
-        # self.plot_data(final_csv_filename, self.mark_times_1, self.mark_times_2)
-        self.plot_data_x(final_csv_filename, self.mark_times_1, self.mark_times_2)
-        self.save_plot_marks(final_csv_filename, self.mark_times_1, self.mark_times_2)
+        self.plot_data(final_csv_filename, self.mark_times_1, self.mark_times_2)
+        #self.plot_data_x(final_csv_filename, self.mark_times_1, self.mark_times_2)
+        #self.save_plot_marks(final_csv_filename, self.mark_times_1, self.mark_times_2)
         self.reinitialize_gaitmelt_variables()
         os.remove(self.output_folder + "recorded_data.csv")
         record_button.config(text="Start Recording", bg="green", fg="white")

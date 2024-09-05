@@ -14,12 +14,12 @@ ESP_IPS = {
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
-OUTPUT_FILENAME = "PGMLT_001"
-OUTPUT_FOLDER = "output_data/"
+OUTPUT_FILENAME = "PGMLT_001-CON-VIBRACION-1"
+OUTPUT_FOLDER = "output_data/3 septiembre toma datos loreto/"
 
 READING_MODE = True
 
-VIBRATION_CADENCE = 2000
+VIBRATION_CADENCE = 1000
 MOTOR_POWER = 250 # 70
 
 ESP_INDEXES = [1, 2, 3, 4]
@@ -71,10 +71,15 @@ root.panels = {
     for i, text in enumerate(label_texts)
 }
 
-# Organizar los paneles en una cuadrícula
+new_positions = {
+    0: (0, 1),
+    1: (1, 1),
+    2: (0, 0),
+    3: (1, 0)
+}
+
 for i, panel in enumerate(root.panels.values()):
-    row = i // 2
-    col = i % 2
+    row, col = new_positions[i]
     panel.grid(row=row, column=col, padx=10, pady=10)
 
 label_output_filename = tk.Label(root, text="Nombre del archivo", bg="white")
@@ -99,8 +104,8 @@ vc_slider_label.grid(row=4, column=1, columnspan=4, pady=(20, 0))
 
 vc_slider = tk.Scale(
     root,
-    from_=500,
-    resolution=500,
+    from_=100,
+    resolution=50,
     to=2000,
     orient="horizontal",
     length=200,

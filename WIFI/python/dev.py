@@ -14,10 +14,10 @@ ESP_IPS = {
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
-OUTPUT_FILENAME = "Voluntario 04 - TUG SV1"
+OUTPUT_FILENAME = "PGMLT_001-SIN-VIBRACION"
 
-OUTPUT_FOLDER = "output_data/"
-READING_MODE = True
+OUTPUT_FOLDER = "output_data/3 septiembre toma datos loreto/"
+READING_MODE = False
 
 NUM_ESPS = 4
 THY = 1.5
@@ -68,6 +68,13 @@ for i in range(2):  # Supone que habrá 2 columnas
 for i in range((NUM_ESPS + 1) // 2):  # Configura las filas necesarias
     root.grid_rowconfigure(i, weight=1)
 
+new_positions = {
+    0: (0, 1),
+    1: (1, 1),
+    2: (0, 0),
+    3: (1, 0)
+}
+
 # Crear y ubicar los paneles con botones
 for i, text in enumerate(label_texts):
     frame = tk.Frame(root, padx=5, pady=5, borderwidth=2, relief="solid", bg="white")
@@ -87,8 +94,7 @@ for i, text in enumerate(label_texts):
     )
     button.pack(pady=(5, 10))
 
-    row = i // 2
-    col = i % 2
+    row, col = new_positions[i]
     frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
 
