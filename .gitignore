@@ -6,3 +6,4 @@ BLE/uuid.txt
 *.png
 *.json
 *.ipynb
+WIFI/python/output_data/*
