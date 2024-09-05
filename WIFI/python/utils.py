@@ -443,12 +443,10 @@ class GaitMelt:
                 board_id = data[esp_id - 1][0]
                 label_texts[esp_id - 1].set(
                     f"Board ID: {board_id}\n"
-                    f"Acc X: {round(data[esp_id - 1][1], 3)}\n"
-                    f"Acc Y: {round(data[esp_id - 1][2], 3)}\n"
-                    f"Acc Z: {round(data[esp_id - 1][3], 3)}\n"
-                    f"Gyr X: {round(data[esp_id - 1][4], 3)}\n"
-                    f"Gyr Y: {round(data[esp_id - 1][5], 3)}\n"
-                    f"Gyr Z: {round(data[esp_id - 1][6], 3)}\n"
+                    f"  Acc      Gyr\n"
+                    f"X  {round(data[esp_id - 1][1], 2):<7}   {round(data[esp_id - 1][4], 2):<7}\n"
+                    f"Y  {round(data[esp_id - 1][2], 2):<7}   {round(data[esp_id - 1][5], 2):<7}\n"
+                    f"Z  {round(data[esp_id - 1][3], 2):<7}   {round(data[esp_id - 1][6], 2):<7}\n"
                     f"Timestamp: {data[esp_id - 1][7]}"
                 )
             else:
