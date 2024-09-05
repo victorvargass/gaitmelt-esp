@@ -77,74 +77,62 @@ gaitmelt = GaitMelt(
 # Configurar la interfaz gráfica
 root = tk.Tk(className=TASK_NAME)
 root.geometry(SCREEN_SIZE)
+root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 
-# Configurar el layout de la cuadrícula
-for i in range(NUM_ESPS):
-    root.grid_columnconfigure(i, weight=1)
-root.grid_rowconfigure(0, weight=1)
-root.grid_rowconfigure(1, weight=1)
-
-# Crear y ubicar los paneles
 label_texts = [tk.StringVar() for _ in range(NUM_ESPS)]
 for i, text in enumerate(label_texts):
     text.set(f"Board {i+1} no conectada")
 
-panels = [
-    tk.Label(
-        root,
-        textvariable=text,
-        padx=10,
-        pady=10,
-        borderwidth=2,
-        relief="solid",
-        width=50,
-        height=20,
-    )
-    for text in label_texts
-]
+# Configurar la cuadrícula para que sea flexible
+for i in range(2):  # Supone que habrá 2 columnas
+    root.grid_columnconfigure(i, weight=1)
+for i in range((NUM_ESPS + 1) // 2):  # Configura las filas necesarias
+    root.grid_rowconfigure(i, weight=1)
 
-for i, panel in enumerate(panels):
-    row = i // 2
-    col = i % 2
-    panel.grid(row=row, column=col, padx=10, pady=10)
+new_positions = {
+    0: (0, 1),
+    1: (1, 1),
+    2: (0, 0),
+    3: (1, 0)
+}
 
-# Configurar botones y elementos adicionales
-motor_button_1 = tk.Button(
-    root,
-    text="Activar vibrador 1",
-    command=lambda: gaitmelt.activate_selected_motors([1]),
-    bg="red",
-    fg="white",
-)
-motor_button_1.grid(row=2, column=0, columnspan=2, pady=(20, 0))
+# Crear y ubicar los paneles con botones
+for i, text in enumerate(label_texts):
+    frame = tk.Frame(root, padx=5, pady=5, borderwidth=2, relief="solid", bg="white")
+    
+    # Label dentro del frame
+    label = tk.Label(frame, textvariable=text, bg="white")
+    label.pack(pady=(10, 5), expand=True, fill='both')
 
-motor_button_2 = tk.Button(
-    root,
-    text="Activar vibrador 2",
-    command=lambda: gaitmelt.activate_selected_motors([2]),
-    bg="red",
-    fg="white",
-)
-motor_button_2.grid(row=3, column=0, columnspan=2, pady=(20, 0))
-
-if NUM_ESPS == 4:
-    motor_button_3 = tk.Button(
-        root,
-        text="Activar vibrador 3",
-        command=lambda: gaitmelt.activate_selected_motors([3]),
-        bg="red",
+    # Botón dentro del frame
+    button = tk.Button(
+        frame,
+        text=f"Activar vibrador",
+        command=lambda i=i: gaitmelt.activate_selected_motors([i+1]),
+        bg="green",
         fg="white",
+        font=("Helvetica", 12),
     )
-    motor_button_3.grid(row=4, column=0, columnspan=2, pady=(20, 0))
-    motor_button_4 = tk.Button(
-        root,
-        text="Activar vibrador 4",
-        command=lambda: gaitmelt.activate_selected_motors([4]),
-        bg="red",
-        fg="white",
-    )
-    motor_button_4.grid(row=5, column=0, columnspan=2, pady=(20, 0))
+    button.pack(pady=(5, 10))
+
+    # Determinar las posiciones de acuerdo al número de ESPs
+    if NUM_ESPS == 4:
+        # Usar el diccionario de posiciones cuando hay 4 ESPs
+        row, col = new_positions[i]
+    else:
+        # Calcular dinámicamente para otros números (como 2)
+        row = i // 2  # División entera para determinar la fila
+        col = i % 2   # Residuo para determinar la columna (0 o 1)
+    
+    frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+
+# Asegura que las filas bajo los paneles puedan expandirse
+for i in range(NUM_ESPS // 2, 10):  # Configura las filas adicionales necesarias
+    root.grid_rowconfigure(i, weight=0)
+
+# Ordenar los controles adicionales en una columna debajo de los paneles
+start_row = (NUM_ESPS + 1) // 2  # Comienza justo después de los paneles
 
 all_motors_button = tk.Button(
     root,
