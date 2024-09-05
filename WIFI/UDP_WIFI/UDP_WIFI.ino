@@ -153,7 +153,7 @@ void loop() {
       else if (strncmp(incomingPacket, "duration", 8) == 0) {
           // Extraemos el valor de duración del mensaje
           int duration = atoi(incomingPacket + 8);
-          if (duration > 0 && duration <= 2000) {
+          if (duration > 0) {
               vibrationDuration = (float)duration;
           }
       }
