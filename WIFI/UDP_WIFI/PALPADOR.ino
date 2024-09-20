@@ -26,7 +26,7 @@ void readPalpadorData(struct_message *data) {
   unsigned long currentTime = millis();
   unsigned long epoch_timestamp = currentTime - startTime;
   data->board_id = BOARD_ID;
-  data->acc_x = a.acceleration.x;
+  data->palpador = digitalRead(PALPADOR)
   data->timestamp = epoch_timestamp;
 }
 
