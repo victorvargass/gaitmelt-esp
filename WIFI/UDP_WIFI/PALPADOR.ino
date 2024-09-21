@@ -8,7 +8,7 @@ const char* deviceName = "GaitMelt Device 1"; // Nombre del dispositivo
 #define MOTORINA 26
 #define MOTORINB 25
 
-#define PALPADOR 27
+#define PALPADOR 10
 
 float motorPower = 255;
 float vibrationDuration = 500;
@@ -26,7 +26,8 @@ void readPalpadorData(struct_message *data) {
   unsigned long currentTime = millis();
   unsigned long epoch_timestamp = currentTime - startTime;
   data->board_id = BOARD_ID;
-  data->palpador = digitalRead(PALPADOR)
+  //data->palpador = 0; // para dispositivos sin palpador
+  data->palpador = digitalRead(PALPADOR) // para dispositivos con palpador
   data->timestamp = epoch_timestamp;
 }
 
