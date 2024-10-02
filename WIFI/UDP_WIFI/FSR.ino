@@ -8,7 +8,10 @@ const char* deviceName = "GaitMelt Device 1"; // Nombre del dispositivo
 #define MOTORINA 26
 #define MOTORINB 25
 
-#define PALPADOR 10
+#define DERECHA 34
+#define TALON 35
+#define PULGAR 36
+#define IZQUIERDA 39
 
 float motorPower = 255;
 float vibrationDuration = 500;
@@ -17,22 +20,27 @@ unsigned long startTime;
 // Estructura de datos
 struct struct_message {
   int board_id;
-  int palpador;
+  int pulgar;
+  int izquierda;
+  int derecha;
+  int talon;
   unsigned long timestamp;
 };
 
-// Leer datos del palpador
-void readPalpadorData(struct_message *data) {
+// Leer datos del FSR
+void readFSRData(struct_message *data) {
   unsigned long currentTime = millis();
   unsigned long epoch_timestamp = currentTime - startTime;
   data->board_id = BOARD_ID;
-  //data->palpador = 0; // para dispositivos sin palpador
-  data->palpador = digitalRead(PALPADOR) // para dispositivos con palpador
+  data->pulgar = analogRead(PULGAR)
+  data->izquierda = analogRead(IZQUIERDA)
+  data->derecha = analogRead(DERECHA)
+  data->talon = analogRead(TALON)
   data->timestamp = epoch_timestamp;
 }
 
-// Estructura de datos palpador
-struct_message palpadorReading;
+// Estructura de datos FSR
+struct_message fsrReading;
 
 // IP de la máquina a la que envías mensajes - esta debe ser la IP correcta en la mayoría de los casos (ver nota en el código de Python)
 #define CONSOLE_IP "192.168.50.82" // IP del receptor
@@ -76,7 +84,10 @@ void setup() {
   Serial.begin(115200);
   pinMode(MOTORINA, OUTPUT);
   pinMode(MOTORINB, OUTPUT);
-  pinMode(PALPADOR, INPUT);
+  pinMode(DERECHA, INPUT);
+  pinMode(TALON, INPUT);
+  pinMode(PULGAR, INPUT);
+  pinMode(IZQUIERDA, INPUT);
   setupWIFI();
   startTime = millis();
 }
@@ -87,10 +98,10 @@ void loop() {
     setupWIFI();
   }
   
-  // Enviar datos del palpador
-  readPalpadorData(&palpadorReading);
-  uint8_t buffer[sizeof(palpadorReading)];
-  memcpy(buffer, &palpadorReading, sizeof(palpadorReading));
+  // Enviar datos del FSR
+  readFSRData(&fsrReading);
+  uint8_t buffer[sizeof(fsrReading)];
+  memcpy(buffer, &fsrReading, sizeof(fsrReading));
   Udp.beginPacket(CONSOLE_IP, CONSOLE_PORT);
   Udp.write(buffer, sizeof(buffer));
   Udp.endPacket();

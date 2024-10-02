@@ -17,6 +17,7 @@ class GaitMelt:
         vd,
         motor_power,
         vibration_offset,
+        fsr_th,
     ):
         self.local_udp_ip = local_udp_ip
         self.shared_port = shared_port
@@ -42,6 +43,7 @@ class GaitMelt:
         self.vibrating = [False for _ in range(num_esps)]
         self.last_vibration_esp = 0
         self.vibration_offset = vibration_offset
+        self.fsr_th = fsr_th
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -49,7 +51,7 @@ class GaitMelt:
         return sock
 
     def analyze_event(self, esp_id, data, root):
-        palpador = data[1]
+        pulgar, izquierda, derecha, talon = data[1:4]
         current_ts = time.time()
         if (
             esp_id == 1
@@ -88,7 +90,10 @@ class GaitMelt:
 
         if (
             esp_id == 3
-            and palpador == 1
+            and pulgar > self.fsr_th
+            and izquierda > self.fsr_th
+            and derecha > self.fsr_th
+            and talon > self.fsr_th
             and current_ts - self.last_vibration_ts
             > self.time_between_vibrations
         ):
@@ -96,7 +101,10 @@ class GaitMelt:
             self.activate_selected_motors([1, 4])
         elif (
             esp_id == 4
-            and palpador == 1
+            and pulgar > self.fsr_th
+            and izquierda > self.fsr_th
+            and derecha > self.fsr_th
+            and talon > self.fsr_th
             and current_ts - self.last_vibration_ts
             > self.time_between_vibrations
         ):
@@ -104,7 +112,9 @@ class GaitMelt:
             self.activate_selected_motors([2, 3])
         self.last_vibration_ts = current_ts
 
-        
+    def update_fsr_th(self, new_fsr_th):
+        self.fsr_th = int(new_fsr_th)
+
     def update_vd(self, new_vd):
         self.vd = int(new_vd)
         self.set_selected_motors_vibration_time()
@@ -120,8 +130,11 @@ class GaitMelt:
                 board_id = data[esp_id - 1][0]
                 label_texts[esp_id - 1].set(
                     f"Board ID: {board_id}\n"
-                    f"Palpador: {data[esp_id - 1][1]}\n"
-                    f"Timestamp: {data[esp_id - 1][2]}"
+                    f"Pulgar: {data[esp_id - 1][1]}\n"
+                    f"Izquierda: {data[esp_id - 1][2]}\n"
+                    f"Derecha: {data[esp_id - 1][3]}\n"
+                    f"Talon: {data[esp_id - 1][4]}\n"
+                    f"Timestamp: {data[esp_id - 1][5]}"
                 )
             else:
                 label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
@@ -130,9 +143,9 @@ class GaitMelt:
         while True:
             data, _ = self.sock.recvfrom(1024)
             if len(data) == struct.calcsize(self.struct_format):
-                palpador_readings = struct.unpack(self.struct_format, data)
-                esp_id = palpador_readings[0]
-                esp_data[esp_id - 1] = palpador_readings
+                fsr_readings = struct.unpack(self.struct_format, data)
+                esp_id = fsr_readings[0]
+                esp_data[esp_id - 1] = fsr_readings
                 data_queue.put(esp_data.copy())
 
     def update_gui(self, data_queue, label_texts, root):

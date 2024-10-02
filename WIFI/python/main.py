@@ -10,7 +10,7 @@ ESP_IPS = {
     3: "192.168.50.13",
     4: "192.168.50.14",
 }
-STRUCT_FORMAT = "iii"
+STRUCT_FORMAT = "iiiiii"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 
@@ -21,6 +21,7 @@ TIME_BETWEEN_HEEL_DETECTION = None
 MIN_DURATION_BETWEEN_HEELS = None
 MOTOR_POWER = 250 # 70
 VIBRATION_OFFSET=None
+FSR_TH=0.5
 
 ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
 
@@ -38,7 +39,8 @@ gaitmelt = GaitMelt(
     time_between_heel_detection=TIME_BETWEEN_HEEL_DETECTION,
     vd=VD,
     motor_power=MOTOR_POWER,
-    vibration_offset=VIBRATION_OFFSET
+    vibration_offset=VIBRATION_OFFSET,
+    fsr_th=FSR_TH,
 )
 
 # Configurar la interfaz gráfica
@@ -144,6 +146,22 @@ motor_power_slider = tk.Scale(
 )
 motor_power_slider.set(gaitmelt.motor_power)
 motor_power_slider.grid(row=start_row + 6, column=0, columnspan=2)
+
+fsr_th_slider_label = tk.Label(root, text="Umbral fsr", bg="white")
+fsr_th_slider_label.grid(row=start_row + 7, column=0, columnspan=2, pady=(20, 0))
+
+fsr_th_slider = tk.Scale(
+    root,
+    from_=0.0,
+    resolution=0.01,
+    to=1.0,
+    orient="horizontal",
+    length=200,
+    bg="white",
+    command=lambda value: gaitmelt.update_fsr_th(fsr_th_slider.get()),
+)
+fsr_th_slider.set(gaitmelt.fsr_th)
+fsr_th_slider.grid(row=start_row + 8, column=0, columnspan=2)
 
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * NUM_ESPS
