@@ -32,10 +32,10 @@ void readFSRData(struct_message *data) {
   unsigned long currentTime = millis();
   unsigned long epoch_timestamp = currentTime - startTime;
   data->board_id = BOARD_ID;
-  data->pulgar = analogRead(PULGAR)
-  data->izquierda = analogRead(IZQUIERDA)
-  data->derecha = analogRead(DERECHA)
-  data->talon = analogRead(TALON)
+  data->pulgar = analogRead(PULGAR);
+  data->izquierda = analogRead(IZQUIERDA);
+  data->derecha = analogRead(DERECHA);
+  data->talon = analogRead(TALON);
   data->timestamp = epoch_timestamp;
 }
 
