@@ -15,47 +15,17 @@ LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 OUTPUT_FILENAME = "Voluntario 04 - TUG SV1"
 
-TASK_NAME = "caminata"  # salto, parkinson, caminata
+OUTPUT_FOLDER = "output_data/"
 
-OUTPUT_FOLDER = "output_data/" + TASK_NAME + "/8-jun-24/"
-#OUTPUT_FOLDER = "output_data/" + TASK_NAME
-READING_MODE = True
+NUM_ESPS = 4
+MOTOR_POWER = 250
 
-if TASK_NAME == "parkinson":
-    NUM_ESPS = 4
-    THY = 1.5
-    VD = 1000  # 500 vibration duration
-    TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
-    TIME_BETWEEN_HEEL_DETECTION = None
-    MIN_DURATION_BETWEEN_HEELS = None
-    MOTOR_POWER = 250 # 70
-    VIBRATION_OFFSET=None
-elif TASK_NAME == "salto":
-    NUM_ESPS = 2
-    THY = 7.5
-    VD = 1000  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 5
-    TIME_BETWEEN_HEEL_DETECTION = None
-    MIN_DURATION_BETWEEN_HEELS = None
-    MOTOR_POWER = 250
-    VIBRATION_OFFSET=None
-elif TASK_NAME == "caminata":
-    NUM_ESPS = 2
-    THY = 12
-    VD = 300  # vibration duration
-    TIME_BETWEEN_VIBRATIONS = 1
-    TIME_BETWEEN_HEEL_DETECTION = 0.5
-    MIN_DURATION_BETWEEN_HEELS = [1.28, 1.26]
-    MOTOR_POWER = 30
-    VIBRATION_OFFSET=100
-
-ESP_INDEXES = [1, 2] if NUM_ESPS == 2 else [1, 2, 3, 4]
+ESP_INDEXES = [1, 2, 3, 4]
 
 SCREEN_SIZE = "1300x700" if NUM_ESPS == 2 else "1300x900"
 
 # Crear una instancia de GaitMelt
 gaitmelt = GaitMelt(
-    task_name=TASK_NAME,
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
     num_esps=NUM_ESPS,
@@ -64,18 +34,11 @@ gaitmelt = GaitMelt(
     struct_format=STRUCT_FORMAT,
     output_folder=OUTPUT_FOLDER,
     output_filename=OUTPUT_FILENAME,
-    time_between_vibrations=TIME_BETWEEN_VIBRATIONS,
-    time_between_heel_detection=TIME_BETWEEN_HEEL_DETECTION,
-    thy=THY,
-    vd=VD,
     motor_power=MOTOR_POWER,
-    min_duration_between_heels=MIN_DURATION_BETWEEN_HEELS,
-    vibration_offset=VIBRATION_OFFSET,
-    reading_mode=READING_MODE
 )
 
 # Configurar la interfaz gráfica
-root = tk.Tk(className=TASK_NAME)
+root = tk.Tk()
 root.geometry(SCREEN_SIZE)
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
@@ -134,106 +97,23 @@ for i in range(NUM_ESPS // 2, 10):  # Configura las filas adicionales necesarias
 # Ordenar los controles adicionales en una columna debajo de los paneles
 start_row = (NUM_ESPS + 1) // 2  # Comienza justo después de los paneles
 
-all_motors_button = tk.Button(
+record_with_vibration_button = tk.Button(
     root,
-    text="Activar todos",
-    command=lambda: gaitmelt.activate_selected_motors(ESP_INDEXES),
+    text="Iniciar registro con vibración",
+    command=lambda: gaitmelt.toggle_recording(record_with_vibration_button, True),
     bg="green",
     fg="white",
 )
-all_motors_button.grid(row=start_row, column=0, columnspan=2, pady=(20, 0))
+record_with_vibration_button.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
 
-all_motors_stop_button = tk.Button(
+record_without_vibration_button = tk.Button(
     root,
-    text="Detener todos",
-    command=lambda: gaitmelt.stop_selected_motors(ESP_INDEXES),
-    bg="red",
-    fg="white",
-)
-all_motors_stop_button.grid(row=start_row + 1, column=0, columnspan=2, pady=(20, 0))
-
-sync_button = tk.Button(
-    root,
-    text="Sincronizar dispositivos",
-    command=lambda: gaitmelt.sync_devices(),
-    bg="yellow",
-    fg="white",
-)
-sync_button.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
-
-vd_slider_label = tk.Label(root, text="Duración vibración [ms]", bg="white")
-vd_slider_label.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
-
-vd_slider = tk.Scale(
-    root,
-    from_=10,
-    resolution=10,
-    to=20000,
-    orient="horizontal",
-    length=200,
-    bg="white",
-    command=lambda value: gaitmelt.update_vd(vd_slider.get()),
-)
-vd_slider.set(gaitmelt.vd)
-vd_slider.grid(row=start_row + 4, column=0, columnspan=2)
-
-motor_power_slider_label = tk.Label(root, text="Potencia motor", bg="white")
-motor_power_slider_label.grid(row=start_row + 5, column=0, columnspan=2, pady=(20, 0))
-
-motor_power_slider = tk.Scale(
-    root,
-    from_=10,
-    resolution=10,
-    to=250,
-    orient="horizontal",
-    length=200,
-    bg="white",
-    command=lambda value: gaitmelt.update_motor_power(motor_power_slider.get()),
-)
-motor_power_slider.set(gaitmelt.motor_power)
-motor_power_slider.grid(row=start_row + 6, column=0, columnspan=2)
-
-
-label_output_filename = tk.Label(root, text="Nombre del archivo", bg="white")
-label_output_filename.grid(row=start_row, column=1, columnspan=2, pady=(20, 0))
-
-input_output_filename = tk.Entry(root)
-input_output_filename.grid(row=start_row + 1, column=1, columnspan=3, pady=(20, 0))
-input_output_filename.insert(0, OUTPUT_FILENAME)
-input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
-
-record_button = tk.Button(
-    root,
-    text="Iniciar grabación",
-    command=lambda: gaitmelt.toggle_recording(record_button),
+    text="Iniciar registro sin vibración",
+    command=lambda: gaitmelt.toggle_recording(record_without_vibration_button, False),
     bg="green",
     fg="white",
 )
-record_button.grid(row=start_row + 2, column=1, columnspan=2, pady=(20, 0))
-
-reading_mode_var = tk.BooleanVar()
-reading_mode_var.set(READING_MODE)
-toggle_button = tk.Checkbutton(root, text="Modo de Lectura", variable=reading_mode_var, 
-                               command=gaitmelt.update_reading_mode, bg="white")
-toggle_button.grid(row=start_row + 3, column=1, columnspan=2, pady=(20, 0))
-
-
-# Slider para acc_y_threshold (ThY)
-thy_slider_label = tk.Label(root, text="Umbral Abs Acc", bg="white")
-thy_slider_label.grid(row=start_row + 5, column=1, columnspan=4, pady=(20, 0))
-
-thy_slider = tk.Scale(
-    root,
-    from_=-20,
-    resolution=0.1,
-    to=15,
-    orient="horizontal",
-    length=200,
-    bg="white",
-    command=lambda value: gaitmelt.update_thy(thy_slider.get()),
-)
-thy_slider.set(gaitmelt.thy)
-thy_slider.grid(row=start_row + 6, column=1, columnspan=2)
+record_without_vibration_button.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
 
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * NUM_ESPS
