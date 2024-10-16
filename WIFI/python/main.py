@@ -99,9 +99,9 @@ start_row = (NUM_ESPS + 1) // 2  # Comienza justo después de los paneles
 
 
 label_output_filename = tk.Label(root, text="Nombre del archivo")
-label_output_filename.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
-input_output_filename = tk.Entry(root)
-input_output_filename.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
+label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=(20, 0))
+input_output_filename = tk.Entry(root, width=50)
+input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=(20, 0))
 input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
 input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
 
