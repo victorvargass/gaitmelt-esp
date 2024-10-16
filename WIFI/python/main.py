@@ -13,7 +13,7 @@ ESP_IPS = {
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
-OUTPUT_FILENAME = "Voluntario 04 - TUG SV1"
+OUTPUT_FILENAME = "Paciente 01"
 
 OUTPUT_FOLDER = "output_data/"
 
@@ -97,6 +97,15 @@ for i in range(NUM_ESPS // 2, 10):  # Configura las filas adicionales necesarias
 # Ordenar los controles adicionales en una columna debajo de los paneles
 start_row = (NUM_ESPS + 1) // 2  # Comienza justo después de los paneles
 
+
+label_output_filename = tk.Label(root, text="Nombre del archivo")
+label_output_filename.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
+input_output_filename = tk.Entry(root)
+input_output_filename.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
+input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
+input_output_filename.bind('<KeyRelease>', gaitmelt.update_output_filename)
+
+
 record_with_vibration_button = tk.Button(
     root,
     text="Iniciar registro con vibración",
@@ -104,7 +113,7 @@ record_with_vibration_button = tk.Button(
     bg="green",
     fg="white",
 )
-record_with_vibration_button.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
+record_with_vibration_button.grid(row=start_row + 4, column=0, columnspan=2, pady=(20, 0))
 
 record_without_vibration_button = tk.Button(
     root,
@@ -113,7 +122,7 @@ record_without_vibration_button = tk.Button(
     bg="green",
     fg="white",
 )
-record_without_vibration_button.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
+record_without_vibration_button.grid(row=start_row + 5, column=0, columnspan=2, pady=(20, 0))
 
 # Configurar threads para la recepción de datos y actualización de la GUI
 esp_data = [None] * NUM_ESPS
