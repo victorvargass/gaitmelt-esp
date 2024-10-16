@@ -186,7 +186,7 @@ class GaitMelt:
     def stop_recording(self, record_button, vibration):
         self.save_data_to_csv()
         final_csv_filename = self.clean_and_rename_csv()
-        self.plot_data(final_csv_filename)
+        self.plot_acc_data(final_csv_filename)
         os.remove(self.output_folder + "recorded_data.csv")
         if vibration:
             button_text = "Iniciar registro con vibración"
@@ -282,6 +282,76 @@ class GaitMelt:
         new_output_filename = event.widget.get()
         self.output_filename = new_output_filename
 
+
+    def plot_acc_data(self, csv_filename):
+        # Lee el archivo CSV
+        accSetColors = ["red", "blue", "green"]
+        gyrSetColors = ["purple", "orange", "pink"]
+
+        acc_y_lims = (-25, 25)
+        gyr_y_lims = (-10, 10)
+
+        try:
+            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
+        except FileNotFoundError:
+            print("Error: Archivo no encontrado.")
+            return
+
+        fig, axs = plt.subplots(
+            2, 2, figsize=(12, 8), sharex="col", sharey="row"
+        )
+
+        sensor_titles = [
+            "Sensor 1 - Muslo Izquierdo",
+            "Sensor 2 - Muslo Derecho",
+            "Sensor 3 - Gemelo Izquierdo",
+            "Sensor 4 - Gemelo Derecho",
+        ]
+
+        # Plot para acc_data
+        axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+        axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
+        axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
+        axs[0, 0].set_title(f"{sensor_titles[0]}")
+        axs[0, 0].set_ylabel("Aceleración")
+        axs[0, 0].legend(loc="lower left")
+        axs[0, 0].set_ylim(acc_y_lims)
+
+        axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+        axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
+        axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
+        axs[0, 1].set_title(f"{sensor_titles[1]}")
+        axs[0, 1].set_ylabel("Aceleración")
+        axs[0, 1].legend(loc="lower left")
+        axs[0, 1].set_ylim(acc_y_lims)
+
+        axs[1, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
+        axs[1, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
+        axs[1, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
+        axs[1, 0].set_title(f"{sensor_titles[2]}")
+        axs[1, 0].set_ylabel("Aceleración")
+        axs[1, 0].legend(loc="lower left")
+        axs[1, 0].set_ylim(acc_y_lims)
+
+        axs[1, 1].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
+        axs[1, 1].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
+        axs[1, 1].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
+        axs[1, 1].set_title(f"{sensor_titles[3]}")
+        axs[1, 1].set_ylabel("Aceleración")
+        axs[1, 1].legend(loc="lower left")
+        axs[1, 1].set_ylim(acc_y_lims)
+
+        fig.supxlabel("Tiempo [s]")
+
+        # Ajustar el diseño
+        suptitle = csv_filename.split(".")[0]
+
+        plt.suptitle(suptitle)
+        plt.tight_layout()
+        plt.savefig(
+            self.output_folder + "/" + suptitle + ".png"
+        )  # Guardar el gráfico como una imagen PNG
+        plt.show()
 
     def plot_data(self, csv_filename):
         # Lee el archivo CSV
