@@ -5,10 +5,9 @@
 #include <Adafruit_Sensor.h>
 #include "time.h"
 
-#define BOARD_ID 1 // BOARD_ID 1, 2, 3, 4
-const char* deviceName = "GaitMelt Device 1"; // Nombre del dispositivo
-#define MOTORINA 26
-#define MOTORINB 25
+#define BOARD_ID 2 // BOARD_ID 1, 2, 3, 4
+const char* deviceName = "GaitMelt Device FSR 2"; // Nombre del dispositivo
+#define MOTORIN 26
 
 Adafruit_MPU6050 mpu;
 float motorPower = 255;
@@ -97,8 +96,9 @@ void setupWIFI() {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(MOTORINA, OUTPUT);
-  pinMode(MOTORINB, OUTPUT);
+  pinMode(MOTORIN, OUTPUT);
+  analogWrite(MOTORIN, motorPower); // linea de prueba
+  delay(1000);
   setupMPU();
   setupWIFI();
   startTime = millis();
@@ -137,13 +137,11 @@ void loop() {
           int vibrationOffset = atoi(incomingPacket + 5);
           Serial.println(vibrationOffset);
           delay(vibrationOffset);
-          analogWrite(MOTORINA, motorPower);
-          analogWrite(MOTORINB, 0);
+          analogWrite(MOTORIN, motorPower);
           motorOnTime = millis();
       }      
       else if (strcmp(incomingPacket, "stop") == 0) {
-          analogWrite(MOTORINA, 0);
-          analogWrite(MOTORINB, 0);
+          analogWrite(MOTORIN, 0);
           motorState = false;
       }
       // Comprobamos si el paquete es "power"
@@ -170,8 +168,7 @@ void loop() {
 
   // Verificar si el motor debe apagarse
   if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
-    analogWrite(MOTORINA, 0);
-    analogWrite(MOTORINB, 0);
+    analogWrite(MOTORIN, 0);
     motorState = false;
   }
 
