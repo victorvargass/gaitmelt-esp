@@ -25,8 +25,8 @@ struct struct_message {
   float gyr_x;
   float gyr_y;
   float gyr_z;
-  float fsr_frontal;
-  float fsr_trasero;
+  int fsr_frontal;
+  int fsr_trasero;
   unsigned long timestamp;
 };
 
