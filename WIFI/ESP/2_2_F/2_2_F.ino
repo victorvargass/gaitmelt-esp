@@ -81,7 +81,7 @@ void connectionSignal(int delay_time){
   analogWrite(MOTORIN, 0);
   delay(delay_time);
   analogWrite(MOTORIN, motorPower);
-  delay(500);
+  delay(100);
   analogWrite(MOTORIN, 0);
   delay(delay_time);
   analogWrite(MOTORIN, motorPower);
@@ -108,7 +108,7 @@ void setupWIFI() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  connectionSignal(1000);
+  connectionSignal(250);
 
   server.begin();
   Udp.begin(CONSOLE_PORT);
@@ -159,12 +159,12 @@ void loop() {
           int vibrationOffset = atoi(incomingPacket + 5);
           Serial.println(vibrationOffset);
           delay(vibrationOffset);
-          analogWrite(MOTORIN, motorPower);
+          analogWrite(MOTORIN, 0);
           motorOnTime = millis();
       }      
       // Comprobamos si el paquete es "power" para detener el motor
       else if (strcmp(incomingPacket, "stop") == 0) {
-          analogWrite(MOTORIN, 0);
+          analogWrite(MOTORIN, motorPower);
           motorState = false;
       }
       // Comprobamos si el paquete es "power" para setear la potencia del motor
@@ -191,7 +191,7 @@ void loop() {
 
   // Verificar si el motor debe apagarse ya que ha pasado la duración de la vibración
   if (motorState && (millis() - motorOnTime >= vibrationDuration)) {
-    analogWrite(MOTORIN, 0);
+    analogWrite(MOTORIN, motorPower);
     motorState = false;
   }
 
