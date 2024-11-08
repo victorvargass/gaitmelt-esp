@@ -40,7 +40,6 @@ class GaitMelt:
         self.struct_format = struct_format
         self.output_folder = output_folder
         self.output_filename = output_filename
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.thy = thy
         self.vd = vd
         self.motor_power = motor_power
@@ -57,7 +56,7 @@ class GaitMelt:
         self.mark_times_2 = []
         self.vibration_times = [[] for _ in range(num_esps)]
         self.buffers = [[] for _ in range(num_esps)]
-        self.sock = self.setup_socket(local_udp_ip, shared_port)
+        #self.sock = self.setup_socket(local_udp_ip, shared_port)
 
         # Variables caminata
         self.esp_steps = []  # Lista de indices para saber que esp tocó talon
