@@ -15,28 +15,24 @@ STRUCT_FORMAT = "i fff fff ii i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 
-OUTPUT_FILENAME = "Voluntario 04 - TUG SV1"
-OUTPUT_FOLDER = "output_data/"
+OUTPUT_FILENAME = "Paciente 0X"
+OUTPUT_FOLDER = "output_data/fsr/"
 
 READING_MODE = True
 
-NUM_ESPS = 4
 THY = 3000
-VD = 1000  # 500 vibration duration
+VD = 500  # 500 vibration duration
 TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
 TIME_BETWEEN_HEEL_DETECTION = None
 MIN_DURATION_BETWEEN_HEELS = None
 MOTOR_POWER = 250 # 70
 VIBRATION_OFFSET=None
 
-ESP_INDEXES = [1, 2, 3, 4]
 
 # Crear una instancia de FSR
 fsr = FSR(
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
-    num_esps=NUM_ESPS,
-    esp_indexes=ESP_INDEXES,
     esp_ips=ESP_IPS,
     struct_format=STRUCT_FORMAT,
     output_folder=OUTPUT_FOLDER,
@@ -117,16 +113,13 @@ def create_fsr_tab(parent):
     record_button = tk.Button(
         parent,
         text="Iniciar registro",
-        command=lambda: fsr.toggle_recording(record_button, data_queue),
+        command=lambda: fsr.toggle_recording(record_button),
         bg="green",
         fg="white",
     )
     record_button.grid(row=start_row + 4, column=0, columnspan=3, pady=20)
-
-    # Configurar threads para la recepción de datos y actualización de la GUI
-    esp_data = [None] * NUM_ESPS
-    data_queue = queue.Queue()
     
+    # Botón "Volver" para regresar a la ventana principal de selección
     back_button = tk.Button(
         parent,
         text="Volver",
@@ -138,16 +131,12 @@ def create_fsr_tab(parent):
     back_button.grid(row=start_row + 5, column=0, columnspan=2, pady=20)
 
     # Configurar threads para la recepción de datos y actualización de la GUI
-    receive_thread = threading.Thread(
-        target=fsr.receive_data, args=(data_queue, esp_data)
-    )
+    receive_thread = threading.Thread(target=fsr.receive_data)
     receive_thread.daemon = True
     receive_thread.start()
 
-    update_thread = threading.Thread(
-        target=fsr.update_gui,
-        args=(data_queue, label_texts, parent),
-    )
+    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root))
+
     update_thread.daemon = True
     update_thread.start()
 
@@ -157,7 +146,8 @@ root.title("FSR")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 
-window_width, window_height = 1000, 1200
+#window_width, window_height = 1000, 1200
+window_width, window_height = 500, 600
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 position_x = (screen_width - window_width) // 2

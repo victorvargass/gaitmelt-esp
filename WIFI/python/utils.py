@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import csv
-import math
 import struct
 import concurrent.futures
 import time
@@ -16,8 +15,6 @@ class VibracionContinua:
         self,
         local_udp_ip,
         shared_port,
-        num_esps,
-        esp_indexes,
         esp_ips,
         struct_format,
         output_folder,
@@ -26,8 +23,8 @@ class VibracionContinua:
     ):
         self.local_udp_ip = local_udp_ip
         self.shared_port = shared_port
-        self.num_esps = num_esps
-        self.esp_indexes = esp_indexes
+        self.num_esps = 4
+        self.esp_indexes = [1, 2, 3, 4]
         self.esp_ips = esp_ips
         self.struct_format = struct_format
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -41,8 +38,14 @@ class VibracionContinua:
         self.recording = False
         self.recorded_data = []
         self.start_time = None
-        self.buffers = [[] for _ in range(num_esps)]
+        self.buffers = [[] for _ in range(self.num_esps)]
         self.sock = self.setup_socket(local_udp_ip, shared_port)
+
+        self.data_queue = queue.Queue()
+        self.esp_data = [None] * self.num_esps
+
+    def clear_data_queue(self):
+        self.data_queue = queue.Queue()
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -124,6 +127,8 @@ class VibracionContinua:
         if self.recording:
             if self.start_time is None:
                 self.start_time = time.time()
+                self.clear_data_queue()
+                self.buffers = [[] for _ in range(self.num_esps)]
             elapsed_time = time.time() - self.start_time
 
             for esp_id in self.esp_indexes:
@@ -131,25 +136,31 @@ class VibracionContinua:
                     self.buffers[esp_id - 1].append(data[esp_id - 1])
 
             while all(self.buffers):
-                tss = [self.buffers[esp_id - 1][0][7] for esp_id in self.esp_indexes]
+                tss = [self.buffers[esp_id - 1][-1][9] for esp_id in self.esp_indexes]
                 min_ts = min(tss)
                 max_ts = max(tss)
-
-                record_entry = [elapsed_time]
-                for esp_id in self.esp_indexes:
-                    synchronized_data = self.buffers[esp_id - 1].pop(0)
-                    record_entry.extend(
-                        [
-                            synchronized_data[7],
-                            synchronized_data[1],
-                            synchronized_data[2],
-                            synchronized_data[3],
-                            synchronized_data[4],
-                            synchronized_data[5],
-                            synchronized_data[6],
-                        ]
-                    )
-                self.recorded_data.append(record_entry)
+                if max_ts - min_ts <= self.max_time_sync_diff:
+                    record_entry = [elapsed_time]
+                    for esp_id in self.esp_indexes:
+                        synchronized_data = self.buffers[esp_id - 1].pop(0)
+                        record_entry.extend(
+                            [
+                                synchronized_data[9],
+                                synchronized_data[1],
+                                synchronized_data[2],
+                                synchronized_data[3],
+                                synchronized_data[4],
+                                synchronized_data[5],
+                                synchronized_data[6],
+                                synchronized_data[7],
+                                synchronized_data[8],
+                            ]
+                        )
+                        self.analyze_event(esp_id, synchronized_data)
+                    self.recorded_data.append(record_entry)
+                else:
+                    oldest_index = tss.index(min_ts)
+                    self.buffers[oldest_index].pop(0)
 
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is not None:
@@ -165,26 +176,26 @@ class VibracionContinua:
             else:
                 label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
 
-    def receive_data(self, data_queue, esp_data):
+    def receive_data(self):
         while True:
             data, _ = self.sock.recvfrom(1024)
             if len(data) == struct.calcsize(self.struct_format):
-                mpu_readings = struct.unpack(self.struct_format, data)
-                esp_id = mpu_readings[0]
-                esp_data[esp_id - 1] = mpu_readings
-                data_queue.put(esp_data.copy())
+                readings = struct.unpack(self.struct_format, data)
+                esp_id = readings[0]
+                self.esp_data[esp_id - 1] = readings
+                self.data_queue.put(self.esp_data.copy())
 
-    def update_gui(self, data_queue, label_texts, root):
+    def update_gui(self, label_texts, root):
         while True:
-            if not data_queue.empty():
-                data = data_queue.get()
+            if not self.data_queue.empty():
+                data = self.data_queue.get()
                 root.after(
                     0,
                     self.update_data,
                     data,
                     label_texts,
                 )
-    
+
     def stop_recording(self, record_button, vibration):
         self.save_data_to_csv()
         final_csv_filename = self.clean_and_rename_csv()
@@ -207,13 +218,11 @@ class VibracionContinua:
             self.recording = False
             self.stop_recording(record_button, vibration)
         else:
-            self.buffers = [[] for _ in range(self.num_esps)]
             self.recording = True
             self.init_recording(record_button)
             if vibration:
                 self.activate_selected_motors(self.esp_indexes)
         self.start_time = None
-        self.buffers = [[] for _ in range(self.num_esps)]
         self.recorded_data = []
 
     def send_esp_message(self, IP, message):
@@ -465,8 +474,6 @@ class FSR:
         self,
         local_udp_ip,
         shared_port,
-        num_esps,
-        esp_indexes,
         esp_ips,
         struct_format,
         output_folder,
@@ -482,8 +489,8 @@ class FSR:
     ):
         self.local_udp_ip = local_udp_ip
         self.shared_port = shared_port
-        self.num_esps = num_esps
-        self.esp_indexes = esp_indexes
+        self.num_esps = 4
+        self.esp_indexes = [1, 2, 3, 4]
         self.esp_ips = esp_ips
         self.struct_format = struct_format
         self.output_folder = output_folder
@@ -503,26 +510,31 @@ class FSR:
         self.start_time = None
         self.mark_times_1 = []
         self.mark_times_2 = []
-        self.vibration_times = [[] for _ in range(num_esps)]
-        self.buffers = [[] for _ in range(num_esps)]
+        self.vibration_times = [[] for _ in range(self.num_esps)]
+        self.buffers = [[] for _ in range(self.num_esps)]
         self.sock = self.setup_socket(local_udp_ip, shared_port)
 
         # Variables caminata
         self.esp_steps = []  # Lista de indices para saber que esp tocó talon
-        self.last_heel_ts = [0 for _ in range(num_esps)]  # TS del ultimo talon
+        self.last_heel_ts = [0 for _ in range(self.num_esps)]  # TS del ultimo talon
         self.diff_heel_time = [
-            0 for _ in range(num_esps)
+            0 for _ in range(self.num_esps)
         ]  # Diferencia de tiempo entre ultimos talones
         self.last_vibration_ts = [
-            0 for _ in range(num_esps)
+            0 for _ in range(self.num_esps)
         ]  # TS de la última vibración
         self.min_duration_between_heels = (
             min_duration_between_heels  # Duracion minima entre talones
         )
-        self.vibrating = [False for _ in range(num_esps)]
+        self.vibrating = [False for _ in range(self.num_esps)]
         self.last_vibration_esp = 0
         self.vibration_offset = vibration_offset
         self.esp_len_vibration = 0
+        self.data_queue = queue.Queue()
+        self.esp_data = [None] * self.num_esps
+    
+    def clear_data_queue(self):
+        self.data_queue = queue.Queue()
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -533,7 +545,7 @@ class FSR:
         fsr_frontal = data[7]
         fsr_trasero = data[8]
         current_ts = time.time()
-        print(esp_id, fsr_frontal, fsr_trasero)
+        #print(esp_id, fsr_frontal, fsr_trasero)
         if (
             esp_id == 1
             and (current_ts - self.last_vibration_ts[0]) * 1000 <= self.vd
@@ -566,22 +578,24 @@ class FSR:
         if (
             esp_id in [2, 4] and fsr_frontal > self.thy
         ): 
-            print("supera umbral", esp_id, fsr_frontal)
             if (
                 esp_id == 2
                 and current_ts - self.last_vibration_ts[1]
                 > self.time_between_vibrations
             ):
+                print("activar vibracion 2 y 3", fsr_frontal, current_ts - self.last_vibration_ts[1])
+                self.last_vibration_ts[1] = current_ts
                 #self.mark_times_1.append(data[9])
-                self.activate_selected_motors([2, 3])
+                #self.activate_selected_motors([2, 3])
             elif (
                 esp_id == 4
                 and current_ts - self.last_vibration_ts[3]
                 > self.time_between_vibrations
             ):
+                print("activar vibracion 1 y 4", esp_id, fsr_frontal, current_ts - self.last_vibration_ts[3])
+                self.last_vibration_ts[3] = current_ts
                 #self.mark_times_2.append(data[9])
-                self.activate_selected_motors([1, 4])
-            self.last_vibration_ts[esp_id - 1] = current_ts
+                #self.activate_selected_motors([1, 4])
 
     def update_output_filename(self, event):
         new_output_filename = event.widget.get()
@@ -641,10 +655,9 @@ class FSR:
     def update_data(self, data, label_texts):
         if self.recording:
             if self.start_time is None:
-                print("start time none")
-                self.buffers = [[] for _ in range(self.num_esps)]
-                self.start_time = None
                 self.start_time = time.time()
+                self.clear_data_queue()
+                self.buffers = [[] for _ in range(self.num_esps)]
             elapsed_time = time.time() - self.start_time
 
             for esp_id in self.esp_indexes:
@@ -652,11 +665,9 @@ class FSR:
                     self.buffers[esp_id - 1].append(data[esp_id - 1])
 
             while all(self.buffers):
-                #print("self.buffers", [self.buffers[esp_id - 1][0][9] for esp_id in self.esp_indexes])
-                tss = [self.buffers[esp_id - 1][0][9] for esp_id in self.esp_indexes]
+                tss = [self.buffers[esp_id - 1][-1][9] for esp_id in self.esp_indexes]
                 min_ts = min(tss)
                 max_ts = max(tss)
-                print(tss)
                 if max_ts - min_ts <= self.max_time_sync_diff:
                     record_entry = [elapsed_time]
                     for esp_id in self.esp_indexes:
@@ -705,20 +716,20 @@ class FSR:
                     )
             else:
                 label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
-
-    def receive_data(self, data_queue, esp_data):
+                
+    def receive_data(self):
         while True:
             data, _ = self.sock.recvfrom(1024)
             if len(data) == struct.calcsize(self.struct_format):
                 readings = struct.unpack(self.struct_format, data)
                 esp_id = readings[0]
-                esp_data[esp_id - 1] = readings
-                data_queue.put(esp_data.copy())
+                self.esp_data[esp_id - 1] = readings
+                self.data_queue.put(self.esp_data.copy())
 
-    def update_gui(self, data_queue, label_texts, root):
+    def update_gui(self, label_texts, root):
         while True:
-            if not data_queue.empty():
-                data = data_queue.get()
+            if not self.data_queue.empty():
+                data = self.data_queue.get()
                 root.after(
                     0,
                     self.update_data,
@@ -726,11 +737,6 @@ class FSR:
                     label_texts,
                 )
                 
-    def reset_data_queue(self, data_queue):
-        """Limpia todos los elementos de la cola data_queue."""
-        with data_queue.mutex:
-            data_queue.queue.clear()
-
     def reinitialize_gaitmelt_variables(self):
         self.recording = False
         self.recorded_data = []
@@ -751,7 +757,6 @@ class FSR:
         os.remove(self.output_folder + "recorded_data.csv")
         button_text = "Iniciar registro"
         record_button.config(text=button_text, bg="green", fg="white")
-        self.buffers = [[] for _ in range(self.num_esps)]
 
     def init_recording(self, record_button):
         record_button.config(text="Detener registro", bg="red", fg="white")
@@ -763,11 +768,9 @@ class FSR:
             self.recording = False
             self.stop_recording(record_button)
         else:
-            self.buffers = [[] for _ in range(self.num_esps)]
             self.recording = True
             self.init_recording(record_button)
         self.start_time = None
-        self.buffers = [[] for _ in range(self.num_esps)]
         self.recorded_data = []
 
     def send_esp_message(self, IP, message):
@@ -777,6 +780,7 @@ class FSR:
             print(f"Error sending message {message} to {IP}: {e}")
 
     def sync_devices(self):
+        self.set_selected_motors_motor_power()
         self.set_selected_motors_vibration_time()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
@@ -786,11 +790,6 @@ class FSR:
             concurrent.futures.wait(futures)
 
     def activate_selected_motors(self, selected_esp_indexes):
-        #print(
-        #    "sending vibration",
-        #    selected_esp_indexes,
-        #    "motor" + str(self.vibration_offset),
-        #)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(
