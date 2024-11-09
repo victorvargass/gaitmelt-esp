@@ -105,23 +105,51 @@ def create_fsr_tab(parent):
         frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
     # Ordenar los controles adicionales en una columna debajo de los paneles
-    start_row = (fsr.num_esps + 1) // 2    
-    
-    label_output_filename = tk.Label(parent, text="Nombre del archivo")
-    label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=20)
-    input_output_filename = tk.Entry(parent, width=50)
-    input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=20)
-    input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
-    input_output_filename.bind('<KeyRelease>', fsr.update_output_filename)
+    start_row = (fsr.num_esps + 1) // 2
 
-    record_button = tk.Button(
+    all_motors_button = tk.Button(
         parent,
-        text="Iniciar registro",
-        command=lambda: fsr.toggle_recording(record_button, data_queue),
+        text="Activar todos",
+        command=lambda: fsr.activate_selected_motors(fsr.esp_indexes),
         bg="green",
         fg="white",
     )
-    record_button.grid(row=start_row + 4, column=0, columnspan=3, pady=20)
+    all_motors_button.grid(row=start_row, column=0, columnspan=2, pady=(20, 0))
+
+    all_motors_stop_button = tk.Button(
+        parent,
+        text="Detener todos",
+        command=lambda: fsr.stop_selected_motors(fsr.esp_indexes),
+        bg="red",
+        fg="white",
+    )
+    all_motors_stop_button.grid(row=start_row + 1, column=0, columnspan=2, pady=(20, 0))
+
+    sync_button = tk.Button(
+        parent,
+        text="Sincronizar dispositivos",
+        command=lambda: fsr.sync_devices(),
+        bg="yellow",
+        fg="white",
+    )
+    sync_button.grid(row=start_row + 2, column=0, columnspan=2, pady=(20, 0))
+
+    # Configurar los sliders y demás controles
+    vd_slider_label = tk.Label(parent, text="Duración vibración [ms]", bg="white")
+    vd_slider_label.grid(row=start_row + 3, column=0, columnspan=2, pady=(20, 0))
+
+    vd_slider = tk.Scale(
+        parent,
+        from_=10,
+        resolution=10,
+        to=20000,
+        orient="horizontal",
+        length=200,
+        bg="white",
+        command=lambda value: fsr.update_vd(vd_slider.get()),
+    )
+    vd_slider.set(fsr.vd)
+    vd_slider.grid(row=start_row + 4, column=0, columnspan=2)
 
     # Configurar threads para la recepción de datos y actualización de la GUI
     esp_data = [None] * NUM_ESPS
@@ -156,13 +184,9 @@ root = tk.Tk()
 root.title("FSR")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
-
-window_width, window_height = 1000, 1200
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-position_x = (screen_width - window_width) // 2
-position_y = (screen_height - window_height) // 2
-root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+root.geometry(f"{screen_width}x{screen_height}")
 
 # Crear la pestaña de FSR
 app = tk.Frame(root)

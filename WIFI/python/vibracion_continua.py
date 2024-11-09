@@ -2,6 +2,7 @@ import tkinter as tk
 import queue
 import threading
 from utils import VibracionContinua  # Asegúrate de que esta importación sea correcta
+import subprocess
 
 # Configuración de los ESPs
 ESP_IPS = {
@@ -13,8 +14,8 @@ ESP_IPS = {
 STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
-OUTPUT_FILENAME = "Paciente 01"
 
+OUTPUT_FILENAME = "Paciente 01"
 OUTPUT_FOLDER = "output_data/vibracion_continua/"
 
 NUM_ESPS = 4
@@ -34,6 +35,10 @@ vibracion_continua = VibracionContinua(
     output_filename=OUTPUT_FILENAME,
     motor_power=MOTOR_POWER,
 )
+
+def back_to_main():
+    subprocess.Popen(['python', 'main.py'])  # Abrir main.py
+    root.destroy()  # Cerrar vibracion.py
 
 def create_vibraction_continua_tab(parent):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
@@ -124,6 +129,16 @@ def create_vibraction_continua_tab(parent):
     esp_data = [None] * NUM_ESPS
     data_queue = queue.Queue()
 
+    # Botón "Volver" para regresar a la ventana principal de selección
+    back_button = tk.Button(
+        parent,
+        text="Volver",
+        command=lambda: back_to_main(),
+        bg="red",
+        fg="white",
+        font=("Helvetica", 14),
+    )
+    back_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
 
     # Configurar threads para la recepción de datos y actualización de la GUI
     receive_thread = threading.Thread(
@@ -138,3 +153,22 @@ def create_vibraction_continua_tab(parent):
     )
     update_thread.daemon = True
     update_thread.start()
+
+
+# Crear la nueva ventana
+root = tk.Tk()
+root.title("Vibración continua")
+root.configure(bg="white")
+root.option_add("*Font", "Helvetica 20")
+window_width, window_height = 1000, 1200
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+position_x = (screen_width - window_width) // 2
+position_y = (screen_height - window_height) // 2
+root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+
+# Crear la pestaña de vibración continua
+app = tk.Frame(root)
+create_vibraction_continua_tab(app)
+app.pack(fill="both", expand=True)
+root.mainloop()
