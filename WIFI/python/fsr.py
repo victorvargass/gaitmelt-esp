@@ -30,7 +30,7 @@ OUTPUT_FOLDER = "output_data/fsr/"
 
 READING_MODE = True
 
-THY = 3000
+THY = 1000
 VD = 500  # 500 vibration duration
 TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
 TIME_BETWEEN_HEEL_DETECTION = None
@@ -81,7 +81,7 @@ def create_fsr_tab(parent, root):
         2: (0, 0),
         3: (1, 0)
     }
-
+    panels = []
     # Crear y ubicar los paneles con botones
     for i, text in enumerate(label_texts):
         frame = tk.Frame(parent, padx=5, pady=5, borderwidth=2, relief="solid", bg="white")
@@ -89,8 +89,10 @@ def create_fsr_tab(parent, root):
         # Label dentro del frame
         label = tk.Label(frame, textvariable=text, bg="white")
         label.pack(pady=(10, 5), expand=True, fill='both')
+        panels.append(frame)  # Guardamos los frames en una lista
 
         # Botón dentro del frame
+        '''
         button = tk.Button(
             frame,
             text=f"Activar vibrador",
@@ -100,6 +102,7 @@ def create_fsr_tab(parent, root):
             font=("Helvetica", 12),
         )
         button.pack(pady=(5, 10))
+        '''
 
         # Determinar las posiciones de acuerdo al número de ESPs
         if fsr.num_esps == 4:
@@ -145,7 +148,7 @@ def create_fsr_tab(parent, root):
     receive_thread.daemon = True
     receive_thread.start()
 
-    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root))
+    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root, panels))
 
     update_thread.daemon = True
     update_thread.start()

@@ -12,7 +12,6 @@ from reportlab.pdfgen import canvas
 import numpy as np
 from datetime import datetime
 import tkinter as tk
-import math
 
 class VibracionContinua:
     def __init__(
@@ -541,42 +540,46 @@ class FSR:
         sock.bind((local_ip, shared_port))
         return sock
 
-    def analyze_event(self, esp_id, data):
+    def analyze_event(self, esp_id, data, panels):
         fsr_frontal = data[7]
         fsr_trasero = data[8]
         current_ts = time.time()
-        #print(esp_id, fsr_frontal, fsr_trasero)
+
         if (
-            esp_id == 1
-            and (current_ts - self.last_vibration_ts[0]) * 1000 <= self.vd
+            esp_id == 2
+            and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
             and not self.vibrating[0]
         ):
             self.vibrating[0] = True
-            # print("Vibrando...", esp_id)
+            #print("Vibrando...", esp_id)
         if (
-            esp_id == 2
-            and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
+            esp_id == 4
+            and (current_ts - self.last_vibration_ts[3]) * 1000 <= self.vd
             and not self.vibrating[1]
         ):
             self.vibrating[1] = True
-            # print("Vibrando...", esp_id)
+            #print("Vibrando...", esp_id)
 
         if (
-            esp_id == 1
-            and (current_ts - self.last_vibration_ts[0]) * 1000 <= self.vd
+            esp_id == 2
+            and (current_ts - self.last_vibration_ts[1]) * 1000 > self.vd
             and self.vibrating[0]
         ):
             self.vibrating[0] = False
-            # print("Dejó de vibrar", esp_id)
+            panels[1].configure(bg="white")
+            panels[2].configure(bg="white")
+            #print("Dejó de vibrar", esp_id)
         if (
-            esp_id == 2
-            and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
+            esp_id == 4
+            and (current_ts - self.last_vibration_ts[3]) * 1000 > self.vd
             and self.vibrating[1]
         ):
             self.vibrating[1] = False
-            # print("Dejó de vibrar", esp_id)
+            panels[0].configure(bg="white")
+            panels[3].configure(bg="white")
+            #print("Dejó de vibrar", esp_id)
         if (
-            esp_id in [2, 4] and fsr_frontal > self.thy
+            esp_id in [2, 4] and (fsr_frontal > self.thy or fsr_trasero > self.thy)
         ): 
             if (
                 esp_id == 2
@@ -586,7 +589,9 @@ class FSR:
                 print("activar vibracion 2 y 3", fsr_frontal, current_ts - self.last_vibration_ts[1])
                 self.last_vibration_ts[1] = current_ts
                 self.right_steps_ts.append(data[9])
-                #self.activate_selected_motors([2, 3])
+                panels[1].configure(bg="green")
+                panels[2].configure(bg="green")
+                self.activate_selected_motors([2, 3])
             elif (
                 esp_id == 4
                 and current_ts - self.last_vibration_ts[3]
@@ -595,7 +600,9 @@ class FSR:
                 print("activar vibracion 1 y 4", esp_id, fsr_frontal, current_ts - self.last_vibration_ts[3])
                 self.last_vibration_ts[3] = current_ts
                 self.left_steps_ts.append(data[9])
-                #self.activate_selected_motors([1, 4])
+                panels[0].configure(bg="green")
+                panels[3].configure(bg="green")
+                self.activate_selected_motors([1, 4])
 
     def update_output_filename(self, event):
         new_output_filename = event.widget.get()
@@ -633,7 +640,7 @@ class FSR:
         df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/"  + "recorded_data.csv", delimiter=",")
         # Definir columnas de timestamp y número de filas iniciales a revisar
         ts_columns = ["ts_1", "ts_2", "ts_3", "ts_4"]
-        n_filas_iniciales = 5
+        n_filas_iniciales = 15
         umbral_timestamp = 1000  # El umbral para detectar valores anómalos en las primeras filas
 
         df_inicial = df.head(n_filas_iniciales)
@@ -653,7 +660,7 @@ class FSR:
         
         return filename
 
-    def update_data(self, data, label_texts):
+    def update_data(self, data, label_texts, panels):
         if self.recording:
             if self.start_time is None:
                 self.start_time = time.time()
@@ -687,7 +694,7 @@ class FSR:
                                 synchronized_data[8],
                             ]
                         )
-                        self.analyze_event(esp_id, synchronized_data)
+                        self.analyze_event(esp_id, synchronized_data, panels)
                     self.recorded_data.append(record_entry)
                 else:
                     oldest_index = tss.index(min_ts)
@@ -728,7 +735,7 @@ class FSR:
                 self.esp_data[esp_id - 1] = readings
                 self.data_queue.put(self.esp_data.copy())
 
-    def update_gui(self, label_texts, root):
+    def update_gui(self, label_texts, root, panels):
         # Se añade un control para verificar si root sigue siendo válido
         try:
             while True:
@@ -736,7 +743,7 @@ class FSR:
                     data = self.data_queue.get()
                     # Verificar si root sigue siendo válido antes de usar after
                     if root.winfo_exists():
-                        root.after(0, self.update_data, data, label_texts)
+                        root.after(0, self.update_data, data, label_texts, panels)
                     else:
                         # Si root no existe, se sale del ciclo o se hace un cierre limpio
                         print("El objeto root ya no existe. Cerrando la aplicación.")
