@@ -6,9 +6,13 @@ import concurrent.futures
 import time
 import os
 import socket
-import json
 import queue
-
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import numpy as np
+from datetime import datetime
+import tkinter as tk
+import math
 
 class VibracionContinua:
     def __init__(
@@ -118,7 +122,7 @@ class VibracionContinua:
 
         resultado_final = pd.concat(dataframes_recortados, axis=1)
 
-        filename = f"{self.output_filename}.csv"
+        filename = "Datos.csv"
         resultado_final.to_csv(self.output_folder + "/" + filename, index=False)
         
         return filename
@@ -156,7 +160,6 @@ class VibracionContinua:
                                 synchronized_data[8],
                             ]
                         )
-                        self.analyze_event(esp_id, synchronized_data)
                     self.recorded_data.append(record_entry)
                 else:
                     oldest_index = tss.index(min_ts)
@@ -508,18 +511,12 @@ class FSR:
         self.recording = False
         self.recorded_data = []
         self.start_time = None
-        self.mark_times_1 = []
-        self.mark_times_2 = []
-        self.vibration_times = [[] for _ in range(self.num_esps)]
+        self.left_steps_ts = []
+        self.right_steps_ts = []
         self.buffers = [[] for _ in range(self.num_esps)]
         self.sock = self.setup_socket(local_udp_ip, shared_port)
 
         # Variables caminata
-        self.esp_steps = []  # Lista de indices para saber que esp tocó talon
-        self.last_heel_ts = [0 for _ in range(self.num_esps)]  # TS del ultimo talon
-        self.diff_heel_time = [
-            0 for _ in range(self.num_esps)
-        ]  # Diferencia de tiempo entre ultimos talones
         self.last_vibration_ts = [
             0 for _ in range(self.num_esps)
         ]  # TS de la última vibración
@@ -532,7 +529,10 @@ class FSR:
         self.esp_len_vibration = 0
         self.data_queue = queue.Queue()
         self.esp_data = [None] * self.num_esps
-    
+
+        self.total_time = 0
+        self.init_time = 0
+
     def clear_data_queue(self):
         self.data_queue = queue.Queue()
 
@@ -585,7 +585,7 @@ class FSR:
             ):
                 print("activar vibracion 2 y 3", fsr_frontal, current_ts - self.last_vibration_ts[1])
                 self.last_vibration_ts[1] = current_ts
-                #self.mark_times_1.append(data[9])
+                self.right_steps_ts.append(data[9])
                 #self.activate_selected_motors([2, 3])
             elif (
                 esp_id == 4
@@ -594,7 +594,7 @@ class FSR:
             ):
                 print("activar vibracion 1 y 4", esp_id, fsr_frontal, current_ts - self.last_vibration_ts[3])
                 self.last_vibration_ts[3] = current_ts
-                #self.mark_times_2.append(data[9])
+                self.left_steps_ts.append(data[9])
                 #self.activate_selected_motors([1, 4])
 
     def update_output_filename(self, event):
@@ -609,7 +609,7 @@ class FSR:
         self.set_selected_motors_vibration_time()
 
     def save_data_to_csv(self):
-        with open(self.output_folder + "recorded_data.csv", "w", newline="") as csvfile:
+        with open(self.output_folder + "/" + self.output_filename + "/" + "recorded_data.csv", "w", newline="") as csvfile:
             csvwriter = csv.writer(csvfile)
             header = ["elapsed_time"]
             for i in self.esp_indexes:
@@ -629,33 +629,35 @@ class FSR:
             csvwriter.writerow(header)
             csvwriter.writerows(self.recorded_data)
 
-    def save_plot_marks(self, csv_filename, mark_times_1=None, mark_times_2=None):
-        prename = self.output_folder + csv_filename.split(".")[0]
-        data = {"mark_times_1": mark_times_1, "mark_times_2": mark_times_2}
-        with open(prename + "_mark_times.json", "w") as archivo:
-            json.dump(data, archivo)
-
     def clean_and_rename_csv(self):
-        df = pd.read_csv(self.output_folder + "recorded_data.csv", delimiter=",")
-        ts_columns = ["ts_1", "ts_2"]
-        if self.num_esps == 4:
-            ts_columns = [
-                "ts_1",
-                "ts_2",
-                "ts_3",
-                "ts_4",
-            ]
+        df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/"  + "recorded_data.csv", delimiter=",")
+        # Definir columnas de timestamp y número de filas iniciales a revisar
+        ts_columns = ["ts_1", "ts_2", "ts_3", "ts_4"]
+        n_filas_iniciales = 5
+        umbral_timestamp = 1000  # El umbral para detectar valores anómalos en las primeras filas
+
+        df_inicial = df.head(n_filas_iniciales)
+        mask = (df_inicial[ts_columns] > umbral_timestamp).any(axis=1)
+        df_inicial_filtrado = df_inicial[~mask]  # Filtrar filas anómalas
+
+        df_restante = df.iloc[n_filas_iniciales:]
+        df = pd.concat([df_inicial_filtrado, df_restante], ignore_index=True)
+
         for column in ts_columns:
             df = df.drop_duplicates(subset=[column])
+
         df.insert(0, "index", range(len(df)))
-        filename = f"{self.output_filename}.csv"
-        df.to_csv(self.output_folder + "/" + filename, index=False)
+
+        filename = "Datos.csv"
+        df.to_csv(self.output_folder + "/" + self.output_filename + "/" + filename, index=False)
+        
         return filename
 
     def update_data(self, data, label_texts):
         if self.recording:
             if self.start_time is None:
                 self.start_time = time.time()
+                self.init_time = datetime.now().strftime("%H:%M:%S")
                 self.clear_data_queue()
                 self.buffers = [[] for _ in range(self.num_esps)]
             elapsed_time = time.time() - self.start_time
@@ -727,51 +729,102 @@ class FSR:
                 self.data_queue.put(self.esp_data.copy())
 
     def update_gui(self, label_texts, root):
-        while True:
-            if not self.data_queue.empty():
-                data = self.data_queue.get()
-                root.after(
-                    0,
-                    self.update_data,
-                    data,
-                    label_texts,
-                )
+        # Se añade un control para verificar si root sigue siendo válido
+        try:
+            while True:
+                if not self.data_queue.empty():
+                    data = self.data_queue.get()
+                    # Verificar si root sigue siendo válido antes de usar after
+                    if root.winfo_exists():
+                        root.after(0, self.update_data, data, label_texts)
+                    else:
+                        # Si root no existe, se sale del ciclo o se hace un cierre limpio
+                        print("El objeto root ya no existe. Cerrando la aplicación.")
+                        root.quit()  # Cierra la aplicación correctamente
+                        break
+        except Exception as e:
+            print(f"Se produjo un error: {e}")
+            root.quit()  # En caso de cualquier error, cerrar la aplicación
                 
     def reinitialize_gaitmelt_variables(self):
-        self.recording = False
-        self.recorded_data = []
         self.start_time = None
-        self.mark_times_1 = []
-        self.mark_times_2 = []
+        self.recorded_data = []
+        self.left_steps_ts = []
+        self.right_steps_ts = []
         self.buffers = [[] for _ in range(self.num_esps)]
-        self.esp_steps = []
-        self.last_heel_ts = [0 for _ in range(self.num_esps)]
-        self.diff_heel_time = [0 for _ in range(self.num_esps)]
         self.last_vibration_ts = [0 for _ in range(self.num_esps)]
-        self.vibration_times = [[] for _ in range(self.num_esps)]
 
     def stop_recording(self, record_button):
         self.save_data_to_csv()
         final_csv_filename = self.clean_and_rename_csv()
+        self.generate_pdf()
         self.plot_data(final_csv_filename)
-        os.remove(self.output_folder + "recorded_data.csv")
+        os.remove(self.output_folder + "/" + self.output_filename + "/" + "recorded_data.csv")
         button_text = "Iniciar registro"
         record_button.config(text=button_text, bg="green", fg="white")
 
     def init_recording(self, record_button):
         record_button.config(text="Detener registro", bg="red", fg="white")
 
-    def toggle_recording(self, record_button):
+    def show_result_dialog(self, root):
+        root.withdraw()  # Ocultar la ventana principal
+
+        # Crear una ventana principal
+        window = tk.Tk()
+        
+        # Ajustar el tamaño de la ventana
+        window.geometry("400x400")  # Aumenta el tamaño de la ventana
+        
+        # Establecer el título de la ventana
+        window.title("Registro Finalizado")
+        window.resizable(False, False)  # Permite redimensionar la ventana
+        
+        # Calcular la posición para centrar la ventana en la pantalla
+        screen_width = window.winfo_screenwidth()  # Ancho de la pantalla
+        screen_height = window.winfo_screenheight()  # Altura de la pantalla
+        
+        # Obtener las dimensiones de la ventana
+        window_width = 600  # Ancho de la ventana
+        window_height = 200  # Altura de la ventana
+        
+        # Calcular las coordenadas para centrar la ventana
+        position_top = int(screen_height / 2 - window_height / 2)
+        position_left = int(screen_width / 2 - window_width / 2)
+        
+        # Establecer la posición de la ventana
+        window.geometry(f"{window_width}x{window_height}+{position_left}+{position_top}")
+        
+        # Crear un label (etiqueta) para el mensaje inicial
+        message1 = "El registro ha finalizado con éxito.\nLos archivos han quedado guardados en:"
+        label1 = tk.Label(window, text=message1, font=("Segoe UI", 20), padx=20, pady=20, justify="center")
+        label1.pack(expand=True)
+
+        # Crear un label (etiqueta) para la ruta en negrita
+        message2 = f"{self.output_folder}{self.output_filename}/"
+        label2 = tk.Label(window, text=message2, font=("Segoe UI", 20, "bold"), padx=20, pady=10, justify="center")
+        label2.pack(expand=True)
+
+        # Botón para cerrar la ventana
+        close_button = tk.Button(window, text="Aceptar", command=lambda: self.destroy_and_reponer_main_window(window, root), font=("Arial", 12))
+        close_button.pack(pady=10)
+        
+
+    def destroy_and_reponer_main_window(self, window, root):
+        window.destroy()
+        root.deiconify()
+
+    def toggle_recording(self, record_button, root):
         self.sync_devices()
         if self.recording:
-            self.stop_selected_motors(self.esp_indexes)
+            self.show_result_dialog(root)
             self.recording = False
             self.stop_recording(record_button)
         else:
             self.recording = True
+            if not os.path.exists(self.output_folder + "/" + self.output_filename):
+                os.makedirs(self.output_folder + "/" + self.output_filename)
             self.init_recording(record_button)
-        self.start_time = None
-        self.recorded_data = []
+        self.reinitialize_gaitmelt_variables()
 
     def send_esp_message(self, IP, message):
         try:
@@ -837,7 +890,7 @@ class FSR:
             ]
             concurrent.futures.wait(futures)
 
-    def plot_data(self, csv_filename, mark_times_1=None, mark_times_2=None):
+    def plot_data(self, csv_filename):
         # Lee el archivo CSV
         accSetColors = ["red", "blue", "green"]
         gyrSetColors = ["purple", "orange", "pink"]
@@ -846,7 +899,7 @@ class FSR:
         gyr_y_lims = (-5, 5)
 
         try:
-            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
+            df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/" +  csv_filename, sep=",")
         except FileNotFoundError:
             print("Error: Archivo no encontrado.")
             return
@@ -855,223 +908,221 @@ class FSR:
             self.num_esps, 2, figsize=(12, 8), sharex="col", sharey="row"
         )
 
-        if self.num_esps == 4:
-
-            sensor_titles = [
-                "Sensor 1 - Muslo Izquierdo",
-                "Sensor 2 - Muslo Derecho",
-                "Sensor 3 - Gemelo Izquierdo",
-                "Sensor 4 - Gemelo Derecho",
-            ]
-
-            # Plot para acc_data
-            axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-            axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
-            axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
-            axs[0, 0].set_title(f"{sensor_titles[0]}")
-            axs[0, 0].set_ylabel("Aceleración")
-            axs[0, 0].legend(loc="lower left")
-            axs[0, 0].set_ylim(acc_y_lims)
-
-            axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-            axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
-            axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
-            axs[0, 1].set_title(f"{sensor_titles[1]}")
-            axs[0, 1].set_ylabel("Aceleración")
-            axs[0, 1].legend(loc="lower left")
-            axs[0, 1].set_ylim(acc_y_lims)
-
-            axs[1, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
-            axs[1, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
-            axs[1, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
-            axs[1, 0].set_title(f"{sensor_titles[2]}")
-            axs[1, 0].set_ylabel("Aceleración")
-            axs[1, 0].legend(loc="lower left")
-            if mark_times_1:
-                for time_point in mark_times_1:
-                    axs[1, 0].axvline(
-                        x=time_point, color="black", linestyle="--", linewidth=1
-                    )
-            axs[1, 0].set_ylim(acc_y_lims)
-
-            axs[1, 1].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
-            axs[1, 1].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
-            axs[1, 1].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
-            axs[1, 1].set_title(f"{sensor_titles[3]}")
-            axs[1, 1].set_ylabel("Aceleración")
-            axs[1, 1].legend(loc="lower left")
-            if mark_times_2:
-                for time_point in mark_times_2:
-                    axs[1, 1].axvline(
-                        x=time_point, color="black", linestyle="--", linewidth=1
-                    )
-            axs[1, 1].set_ylim(acc_y_lims)
-
-            # Plot para gyr_data
-            axs[2, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
-            axs[2, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
-            axs[2, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
-            axs[2, 0].set_title(f"{sensor_titles[0]}")
-            axs[2, 0].set_ylabel("Giroscopio")
-            axs[2, 0].legend(loc="lower left")
-            axs[2, 0].set_ylim(gyr_y_lims)
-
-            axs[2, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
-            axs[2, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
-            axs[2, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
-            axs[2, 1].set_title(f"{sensor_titles[1]}")
-            axs[2, 1].set_ylabel("Giroscopio")
-            axs[2, 1].legend(loc="lower left")
-            axs[2, 1].set_ylim(gyr_y_lims)
-
-            axs[3, 0].plot(df["ts_1"], df["gyr_x_3"], label="x", color=gyrSetColors[0])
-            axs[3, 0].plot(df["ts_1"], df["gyr_y_3"], label="y", color=gyrSetColors[1])
-            axs[3, 0].plot(df["ts_1"], df["gyr_z_3"], label="z", color=gyrSetColors[2])
-            axs[3, 0].set_title(f"{sensor_titles[2]}")
-            axs[3, 0].set_ylabel("Giroscopio")
-            axs[3, 0].legend(loc="lower left")
-            if mark_times_1:
-                for time_point in mark_times_1:
-                    axs[3, 0].axvline(
-                        x=time_point, color="black", linestyle="--", linewidth=1
-                    )
-            axs[3, 0].set_ylim(gyr_y_lims)
-
-            axs[3, 1].plot(df["ts_1"], df["gyr_x_4"], label="x", color=gyrSetColors[0])
-            axs[3, 1].plot(df["ts_1"], df["gyr_y_4"], label="y", color=gyrSetColors[1])
-            axs[3, 1].plot(df["ts_1"], df["gyr_z_4"], label="z", color=gyrSetColors[2])
-            axs[3, 1].set_title(f"{sensor_titles[3]}")
-            axs[3, 1].set_ylabel("Giroscopio")
-            axs[3, 1].legend(loc="lower left")
-            if mark_times_2:
-                for time_point in mark_times_2:
-                    axs[3, 1].axvline(
-                        x=time_point, color="black", linestyle="--", linewidth=1
-                    )
-            axs[3, 1].set_ylim(gyr_y_lims)
-
-        else:
-            sensor_titles = [
-                "Sensor 1 - Muslo Izquierdo",
-                "Sensor 2 - Muslo Derecho",
-            ]
-
-            # Plot para acc_data
-            axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-            axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
-            axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
-            axs[0, 0].set_title(f"{sensor_titles[0]}")
-            axs[0, 0].set_ylabel("Aceleración")
-            axs[0, 0].legend(loc="lower left")
-            axs[0, 0].set_ylim(acc_y_lims)
-            axs[0, 0].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-            if mark_times_1:
-                for time_point in mark_times_1:
-                    axs[0, 0].axvline(
-                        x=time_point, color="black", linestyle="--", linewidth=1
-                    )
-            axs[1, 0].set_ylim(acc_y_lims)
-
-            axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-            axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
-            axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
-            axs[0, 1].set_title(f"{sensor_titles[1]}")
-            axs[0, 1].set_ylabel("Aceleración")
-            axs[0, 1].legend(loc="lower left")
-            axs[0, 1].set_ylim(acc_y_lims)
-            axs[0, 1].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-            if mark_times_2:
-                for time_point in mark_times_2:
-                    axs[0, 1].axvline(
-                        x=time_point, color="black", linestyle="--", linewidth=1
-                    )
-            axs[1, 0].set_ylim(acc_y_lims)
-
-            # Plot para gyr_data
-            axs[1, 0].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
-            axs[1, 0].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
-            axs[1, 0].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
-            axs[1, 0].set_title(f"{sensor_titles[0]}")
-            axs[1, 0].set_ylabel("Giroscopio")
-            axs[1, 0].legend(loc="lower left")
-            axs[1, 0].set_ylim(gyr_y_lims)
-
-            axs[1, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
-            axs[1, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
-            axs[1, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
-            axs[1, 1].set_title(f"{sensor_titles[1]}")
-            axs[1, 1].set_ylabel("Giroscopio")
-            axs[1, 1].legend(loc="lower left")
-            axs[1, 1].set_ylim(gyr_y_lims)
-
-        fig.supxlabel("Tiempo [s]")
-
-        # Ajustar el diseño
-        suptitle = csv_filename.split(".")[0]
-
-        plt.suptitle(suptitle)
-        plt.tight_layout()
-        plt.savefig(
-            self.output_folder + "/" + suptitle + ".png"
-        )  # Guardar el gráfico como una imagen PNG
-        plt.show()
-
-    def plot_data_x(self, csv_filename, mark_times_1=None, mark_times_2=None):
-        # Lee el archivo CSV
-        accSetColors = ["blue"]
-
-        acc_y_lims = (-25, 25)
-
-        try:
-            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
-        except FileNotFoundError:
-            print("Error: Archivo no encontrado.")
-            return
-
-        fig, axs = plt.subplots(
-            self.num_esps, 1, figsize=(12, 8), sharex="col", sharey="row"
-        )
         sensor_titles = [
-            "Sensor 1 - Gemelo Izquierdo",
-            "Sensor 2 - Gemelo Derecho",
+            "Sensor 1 - Muslo Izquierdo",
+            "Sensor 2 - Muslo Derecho",
+            "Sensor 3 - Gemelo Izquierdo",
+            "Sensor 4 - Gemelo Derecho",
         ]
 
         # Plot para acc_data
-        axs[0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-        axs[0].set_title(f"{sensor_titles[0]}")
-        axs[0].set_ylabel("Aceleración")
-        axs[0].legend(loc="lower left")
-        axs[0].set_ylim(acc_y_lims)
-        axs[0].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-        if mark_times_1:
-            for time_point in mark_times_1:
-                axs[0].axvline(x=time_point, color="black", linestyle="--", linewidth=1)
-        if self.vibration_times[0]:
-            for time_point in self.vibration_times[0]:
-                axs[0].axvline(x=time_point, color="red", linestyle="-", linewidth=1)
+        axs[0, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
+        axs[0, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
+        axs[0, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
+        axs[0, 0].set_title(f"{sensor_titles[2]}")
+        axs[0, 0].set_ylabel("Aceleración")
+        if self.right_steps_ts:
+            for idx, time_point in enumerate(self.right_steps_ts):
+                axs[0, 0].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[0, 0].legend()
+        axs[0, 0].set_ylim(acc_y_lims)
 
-        axs[1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-        axs[1].set_title(f"{sensor_titles[1]}")
-        axs[1].set_ylabel("Aceleración")
-        axs[1].legend(loc="lower left")
-        axs[1].set_ylim(acc_y_lims)
-        axs[1].axhline(y=self.thy, color="green", linestyle="--", linewidth=1)
-        if mark_times_2:
-            for time_point in mark_times_2:
-                axs[1].axvline(x=time_point, color="black", linestyle="--", linewidth=1)
-        if self.vibration_times[1]:
-            for time_point in self.vibration_times[1]:
-                axs[1].axvline(x=time_point, color="red", linestyle="-", linewidth=1)
+        axs[0, 1].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
+        axs[0, 1].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
+        axs[0, 1].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
+        axs[0, 1].set_title(f"{sensor_titles[0]}")
+        axs[0, 1].set_ylabel("Aceleración")
+        if self.left_steps_ts:
+            for idx, time_point in enumerate(self.left_steps_ts):
+                axs[0, 1].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[0, 1].legend()
+        axs[0, 1].set_ylim(acc_y_lims)
 
-        # Plot para gy
+        axs[1, 0].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
+        axs[1, 0].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
+        axs[1, 0].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
+        axs[1, 0].set_title(f"{sensor_titles[3]}")
+        axs[1, 0].set_ylabel("Aceleración")
+        if self.left_steps_ts:
+            for idx, time_point in enumerate(self.left_steps_ts):
+                axs[1, 0].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[1, 0].legend()
+        axs[1, 0].set_ylim(acc_y_lims)
+
+        axs[1, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
+        axs[1, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
+        axs[1, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
+        axs[1, 1].set_title(f"{sensor_titles[1]}")
+        axs[1, 1].set_ylabel("Aceleración")
+        if self.right_steps_ts:
+            for idx, time_point in enumerate(self.right_steps_ts):
+                axs[1, 1].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[1, 1].legend()
+        axs[1, 1].set_ylim(acc_y_lims)
+
+        # Plot para gyr_data
+        axs[2, 0].plot(df["ts_1"], df["gyr_x_3"], label="x", color=gyrSetColors[0])
+        axs[2, 0].plot(df["ts_1"], df["gyr_y_3"], label="y", color=gyrSetColors[1])
+        axs[2, 0].plot(df["ts_1"], df["gyr_z_3"], label="z", color=gyrSetColors[2])
+        axs[2, 0].set_title(f"{sensor_titles[2]}")
+        axs[2, 0].set_ylabel("Giroscopio")
+        if self.right_steps_ts:
+            for idx, time_point in enumerate(self.right_steps_ts):
+                axs[2, 0].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[2, 0].legend()
+        axs[2, 0].set_ylim(gyr_y_lims)
+
+        axs[2, 1].plot(df["ts_1"], df["gyr_x_1"], label="x", color=gyrSetColors[0])
+        axs[2, 1].plot(df["ts_1"], df["gyr_y_1"], label="y", color=gyrSetColors[1])
+        axs[2, 1].plot(df["ts_1"], df["gyr_z_1"], label="z", color=gyrSetColors[2])
+        axs[2, 1].set_title(f"{sensor_titles[0]}")
+        axs[2, 1].set_ylabel("Giroscopio")
+        if self.left_steps_ts:
+            for idx, time_point in enumerate(self.left_steps_ts):
+                axs[2, 1].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[2, 1].legend()
+        axs[2, 1].set_ylim(gyr_y_lims)
+
+        axs[3, 0].plot(df["ts_1"], df["gyr_x_4"], label="x", color=gyrSetColors[0])
+        axs[3, 0].plot(df["ts_1"], df["gyr_y_4"], label="y", color=gyrSetColors[1])
+        axs[3, 0].plot(df["ts_1"], df["gyr_z_4"], label="z", color=gyrSetColors[2])
+        axs[3, 0].set_title(f"{sensor_titles[3]}")
+        axs[3, 0].set_ylabel("Giroscopio")
+        if self.left_steps_ts:
+            for idx, time_point in enumerate(self.left_steps_ts):
+                axs[3, 0].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[3, 0].legend()
+        axs[3, 0].set_ylim(gyr_y_lims)
+
+        axs[3, 1].plot(df["ts_1"], df["gyr_x_2"], label="x", color=gyrSetColors[0])
+        axs[3, 1].plot(df["ts_1"], df["gyr_y_2"], label="y", color=gyrSetColors[1])
+        axs[3, 1].plot(df["ts_1"], df["gyr_z_2"], label="z", color=gyrSetColors[2])
+        axs[3, 1].set_title(f"{sensor_titles[1]}")
+        axs[3, 1].set_ylabel("Giroscopio")
+        if self.right_steps_ts:
+            for idx, time_point in enumerate(self.right_steps_ts):
+                axs[3, 1].axvline(
+                    x=time_point, color="black", linestyle="--", linewidth=1, label="Activación vibración" if idx == 0 else None
+                )
+        axs[3, 1].legend()
+        axs[3, 1].set_ylim(gyr_y_lims)
+
         fig.supxlabel("Tiempo [s]")
 
         # Ajustar el diseño
-        suptitle = csv_filename.split(".")[0]
+        suptitle = self.output_filename
 
         plt.suptitle(suptitle)
         plt.tight_layout()
         plt.savefig(
-            self.output_folder + "/" + suptitle + "_x.png"
+            self.output_folder + "/" + self.output_filename + "/" + "Gráficas.png"
         )  # Guardar el gráfico como una imagen PNG
-        plt.show()
+
+    # Función para generar el PDF
+    def generate_pdf(self):
+        # Crear un objeto Canvas
+        c = canvas.Canvas(f"{self.output_folder}/{self.output_filename}/Reporte Gaitmelt.pdf", pagesize=letter)
+        _, height = letter  # Tamaño de la página
+        
+        height = height - 30
+        # Título
+        c.setFont("Helvetica-Bold", 20)
+        c.drawString(50, 720, "Reporte Gaitmelt")
+        
+        # Logo en la parte superior derecha
+        logo_path = "leufulab.png"  # Cambia esto por la ruta de tu logo
+        c.drawImage(logo_path, 500, 730, width=100, height=70)
+        
+        # Datos
+        c.setFont("Helvetica", 12)
+
+        current_date = datetime.now().strftime("%d-%m-%Y")
+
+        total_time = time.time() - self.start_time
+        hours = int(total_time // 3600)  # Obtener las horas
+        minutes = int((total_time % 3600) // 60)  # Obtener los minutos
+        seconds = int(total_time % 60)  # Obtener los segundos
+        formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+
+        left_step_count = len(self.left_steps_ts)
+        right_step_count = len(self.right_steps_ts)
+        total_steps = left_step_count + right_step_count
+
+        # Inicializamos las variables de cadencia como 0 por defecto
+        left_step_cadence_avg = 0
+        min_left_step_cadence_avg = 0
+        max_left_step_cadence_avg = 0
+        right_step_cadence_avg = 0
+        min_right_step_cadence_avg = 0
+        max_right_step_cadence_avg = 0
+        general_cadence = 0
+
+        # Verificamos si hay pasos en ambos pies
+        if total_steps > 0:
+            if left_step_count > 1:  # Si hay pasos en el pie izquierdo
+                left_step_cadence = np.diff(self.left_steps_ts) / 1000
+                left_step_cadence_avg = np.mean(left_step_cadence)
+                min_left_step_cadence_avg = np.min(left_step_cadence)
+                max_left_step_cadence_avg = np.max(left_step_cadence)
+
+            if right_step_count > 1:  # Si hay pasos en el pie derecho
+                right_step_cadence = np.diff(self.right_steps_ts) / 1000
+                right_step_cadence_avg = np.mean(right_step_cadence)
+                min_right_step_cadence_avg = np.min(right_step_cadence)
+                max_right_step_cadence_avg = np.max(right_step_cadence)
+
+            # Concatenar las cadencias de ambos pies (si existen)
+            total_cadence = []
+            if left_step_count > 1:
+                total_cadence.extend(left_step_cadence)
+            if right_step_count > 1:
+                total_cadence.extend(right_step_cadence)
+
+            # Calcular la cadencia general si hay datos
+            if total_cadence:
+                general_cadence = np.mean(total_cadence)
+
+        c.setFont("Helvetica", 12)
+        # Dibujar los textos en el documento con separaciones de 40 puntos entre secciones
+        c.drawString(50, height - 80, f"Paciente: {self.output_filename}")
+        c.drawString(50, height - 100, f"Fecha: {current_date}")
+        c.drawString(50, height - 120, f"Hora: {self.init_time}")
+
+        # Separación de 40 puntos entre las siguientes secciones
+        c.drawString(50, height - 160, f"- Tiempo total: {formatted_time}")
+        c.drawString(50, height - 180, f"- N° total de pasos: {total_steps}")
+        c.drawString(50, height - 200, f"- Cadencia promedio del total de pasos: {general_cadence:.2f} segundos")
+
+        # Datos de la pierna izquierda
+        c.drawString(50, height - 240, f"- Pierna izquierda:")
+        c.drawString(50, height - 260, f"  - N° de pasos: {left_step_count}")
+        c.drawString(50, height - 280, f"  - Cadencia mínima: {min_left_step_cadence_avg:.2f} segundos")
+        c.drawString(50, height - 300, f"  - Cadencia máxima: {max_left_step_cadence_avg:.2f} segundos")
+        c.drawString(50, height - 320, f"  - Cadencia promedio: {left_step_cadence_avg:.2f} segundos")
+
+        # Datos de la pierna derecha
+        c.drawString(50, height - 360, f"- Pierna derecha:")
+        c.drawString(50, height - 380, f"  - N° de pasos: {right_step_count}")
+        c.drawString(50, height - 400, f"  - Cadencia mínima: {min_right_step_cadence_avg:.2f} segundos")
+        c.drawString(50, height - 420, f"  - Cadencia máxima: {max_right_step_cadence_avg:.2f} segundos")
+        c.drawString(50, height - 440, f"  - Cadencia promedio: {right_step_cadence_avg:.2f} segundos")
+
+        # Agregar más información si es necesario
+        c.showPage()  # Añadir una nueva página si se necesita más espacio
+
+        # Guardar el archivo PDF
+        c.save()

@@ -1,5 +1,5 @@
 import tkinter as tk
-import queue
+import os
 import threading
 from utils import FSR  # Asegúrate de que esta importación sea correcta
 import subprocess
@@ -15,6 +15,16 @@ STRUCT_FORMAT = "i fff fff ii i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 
+cmd = f"lsof -i :{SHARED_UDP_PORT} | grep {LOCAL_UDP_IP} | awk '{{print $2}}'"
+
+try:
+    pid = subprocess.check_output(cmd, shell=True).decode().strip()
+    if pid:
+        print(f"Terminando proceso con PID {pid} que está usando el puerto {SHARED_UDP_PORT}")
+        os.system(f"kill -9 {pid}")
+except subprocess.CalledProcessError:
+    print("No se pudo obtener el PID o no hay proceso asociado al puerto.")
+    
 OUTPUT_FILENAME = "Paciente 0X"
 OUTPUT_FOLDER = "output_data/fsr/"
 
@@ -51,7 +61,7 @@ def back_to_main():
     subprocess.Popen(['python', 'main.py'])  # Abrir main.py
     root.destroy()  # Cerrar vibracion.py
 
-def create_fsr_tab(parent):
+def create_fsr_tab(parent, root):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
     
     # Configuración de ESPs
@@ -113,7 +123,7 @@ def create_fsr_tab(parent):
     record_button = tk.Button(
         parent,
         text="Iniciar registro",
-        command=lambda: fsr.toggle_recording(record_button),
+        command=lambda: fsr.toggle_recording(record_button, root),
         bg="green",
         fg="white",
     )
@@ -146,8 +156,7 @@ root.title("FSR")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 
-#window_width, window_height = 1000, 1200
-window_width, window_height = 500, 600
+window_width, window_height = 1000, 1200
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 position_x = (screen_width - window_width) // 2
@@ -156,6 +165,6 @@ root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
 
 # Crear la pestaña de FSR
 app = tk.Frame(root)
-create_fsr_tab(app)
+create_fsr_tab(app, root)
 app.pack(fill="both", expand=True)
 root.mainloop()
