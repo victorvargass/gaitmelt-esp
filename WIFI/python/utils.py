@@ -908,7 +908,6 @@ class FSR:
             print(f"Error sending message {message} to {IP}: {e}")
 
     def sync_devices(self):
-        self.set_selected_motors_motor_power()
         self.set_selected_motors_vibration_time()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
