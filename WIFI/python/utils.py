@@ -631,28 +631,38 @@ class FSR:
             csvwriter.writerows(self.recorded_data)
 
     def clean_and_rename_csv(self):
-        df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/"  + "recorded_data.csv", delimiter=",")
+        df = pd.read_csv(f"{self.output_folder}/{self.output_filename}/recorded_data.csv", delimiter=",")
         # Definir columnas de timestamp y número de filas iniciales a revisar
-        ts_columns = ["ts_1", "ts_2", "ts_3", "ts_4"]
-        n_filas_iniciales = 15
-        umbral_timestamp = 1000  # El umbral para detectar valores anómalos en las primeras filas
+        timestamp_columns = ["ts_1", "ts_2", "ts_3", "ts_4"]
+        initial_rows_count = 10
+        timestamp_threshold = 500  # El umbral para detectar valores anómalos en las primeras filas
 
-        df_inicial = df.head(n_filas_iniciales)
-        mask = (df_inicial[ts_columns] > umbral_timestamp).any(axis=1)
-        df_inicial_filtrado = df_inicial[~mask]  # Filtrar filas anómalas
-
-        df_restante = df.iloc[n_filas_iniciales:]
-        df = pd.concat([df_inicial_filtrado, df_restante], ignore_index=True)
-
-        for column in ts_columns:
+        for column in timestamp_columns:
             df = df.drop_duplicates(subset=[column])
+
+        initial_df = df.head(initial_rows_count)
+
+        anomaly_mask = (initial_df[timestamp_columns] > timestamp_threshold).any(axis=1)
+        filtered_initial_df = initial_df[~anomaly_mask]
+
+        remaining_df = df.iloc[initial_rows_count:]
+
+        df = pd.concat([filtered_initial_df, remaining_df], ignore_index=True)
+
+        umbral = 50
+        df['diff_ts_1'] = df['ts_1'].diff()
+        wrong_ts_idx = df[df['diff_ts_1'].abs() > umbral].index
+        if not wrong_ts_idx.empty:
+            idx_to_delete= wrong_ts_idx[0]
+            df = df.iloc[:idx_to_delete]
+        df = df.drop(columns=['diff_ts_1'])
 
         df.insert(0, "index", range(len(df)))
 
-        filename = "Datos.csv"
-        df.to_csv(self.output_folder + "/" + self.output_filename + "/" + filename, index=False)
-        
-        return filename
+        output_filename = "Datos.csv"
+        df.to_csv(f"{self.output_folder}/{self.output_filename}/{output_filename}", index=False)
+
+        return output_filename
 
     def process_data(self, data, panels):
         # Verificamos si la grabación ha comenzado, reiniciando los buffers y otros valores
