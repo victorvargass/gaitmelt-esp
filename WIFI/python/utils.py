@@ -47,9 +47,6 @@ class VibracionContinua:
         self.data_queue = queue.Queue()
         self.esp_data = [None] * self.num_esps
 
-    def clear_data_queue(self):
-        self.data_queue = queue.Queue()
-
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((local_ip, shared_port))
@@ -130,7 +127,7 @@ class VibracionContinua:
         if self.recording:
             if self.start_time is None:
                 self.start_time = time.time()
-                self.clear_data_queue()
+                self.data_queue = queue.Queue()
                 self.buffers = [[] for _ in range(self.num_esps)]
             elapsed_time = time.time() - self.start_time
 
@@ -532,9 +529,6 @@ class FSR:
         self.total_time = 0
         self.init_time = 0
 
-    def clear_data_queue(self):
-        self.data_queue = queue.Queue()
-
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((local_ip, shared_port))
@@ -660,46 +654,50 @@ class FSR:
         
         return filename
 
-    def update_data(self, data, label_texts, panels):
-        if self.recording:
-            if self.start_time is None:
-                self.start_time = time.time()
-                self.init_time = datetime.now().strftime("%H:%M:%S")
-                self.clear_data_queue()
-                self.buffers = [[] for _ in range(self.num_esps)]
-            elapsed_time = time.time() - self.start_time
+    def process_data(self, data, panels):
+        # Verificamos si la grabación ha comenzado, reiniciando los buffers y otros valores
+        if self.start_time is None and self.recording:
+            # Reiniciar el tiempo de inicio y otros valores necesarios
+            self.start_time = time.time()
+            self.init_time = datetime.now().strftime("%H:%M:%S")
+            self.data_queue = queue.Queue()
+            self.buffers = [[] for _ in range(self.num_esps)]  # Reiniciar los buffers
 
-            for esp_id in self.esp_indexes:
-                if data[esp_id - 1] is not None:
-                    self.buffers[esp_id - 1].append(data[esp_id - 1])
+        elapsed_time = time.time() - self.start_time
 
-            while all(self.buffers):
-                tss = [self.buffers[esp_id - 1][-1][9] for esp_id in self.esp_indexes]
-                min_ts = min(tss)
-                max_ts = max(tss)
-                if max_ts - min_ts <= self.max_time_sync_diff:
-                    record_entry = [elapsed_time]
-                    for esp_id in self.esp_indexes:
-                        synchronized_data = self.buffers[esp_id - 1].pop(0)
-                        record_entry.extend(
-                            [
-                                synchronized_data[9],
-                                synchronized_data[1],
-                                synchronized_data[2],
-                                synchronized_data[3],
-                                synchronized_data[4],
-                                synchronized_data[5],
-                                synchronized_data[6],
-                                synchronized_data[7],
-                                synchronized_data[8],
-                            ]
-                        )
-                        self.analyze_event(esp_id, synchronized_data, panels)
-                    self.recorded_data.append(record_entry)
-                else:
-                    oldest_index = tss.index(min_ts)
-                    self.buffers[oldest_index].pop(0)
+        for esp_id in self.esp_indexes:
+            if data[esp_id - 1] is not None:
+                self.buffers[esp_id - 1].append(data[esp_id - 1])
 
+        while all(self.buffers):
+            tss = [self.buffers[esp_id - 1][-1][9] for esp_id in self.esp_indexes]
+            min_ts = min(tss)
+            max_ts = max(tss)
+            if max_ts - min_ts <= self.max_time_sync_diff:
+                record_entry = [elapsed_time]
+                for esp_id in self.esp_indexes:
+                    synchronized_data = self.buffers[esp_id - 1].pop(0)
+                    record_entry.extend(
+                        [
+                            synchronized_data[9],
+                            synchronized_data[1],
+                            synchronized_data[2],
+                            synchronized_data[3],
+                            synchronized_data[4],
+                            synchronized_data[5],
+                            synchronized_data[6],
+                            synchronized_data[7],
+                            synchronized_data[8],
+                        ]
+                    )
+                    self.analyze_event(esp_id, synchronized_data, panels)
+                self.recorded_data.append(record_entry)
+            else:
+                oldest_index = tss.index(min_ts)
+                print(f"Hay problemas con la ESP {esp_id}", oldest_index, tss, min_ts, max_ts )
+                self.buffers[oldest_index].pop(0)
+
+    def display_data(self, data, label_texts):
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is not None:
                 board_id = data[esp_id - 1][0]
@@ -725,30 +723,52 @@ class FSR:
                     )
             else:
                 label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
-                
-    def receive_data(self):
+
+    def is_synchronized(self, data):
+        timestamps = [reading[9] for reading in data if reading is not None]
+        
+        if len(timestamps) < len(self.esp_indexes):
+            return False  # No todos los dispositivos han enviado datos aún
+
+        min_ts = min(timestamps)
+        max_ts = max(timestamps)
+        
+        # Definir un máximo de diferencia entre los timestamps para considerar que están sincronizados
+        if max_ts - min_ts <= self.max_time_sync_diff:
+            return True
+        else:
+            return False
+
+    def receive_data(self, panels):
         while True:
             data, _ = self.sock.recvfrom(1024)
             if len(data) == struct.calcsize(self.struct_format):
                 readings = struct.unpack(self.struct_format, data)
                 esp_id = readings[0]
                 self.esp_data[esp_id - 1] = readings
-                self.data_queue.put(self.esp_data.copy())
 
-    def update_gui(self, label_texts, root, panels):
-        # Se añade un control para verificar si root sigue siendo válido
-        try:
-            while True:
-                if not self.data_queue.empty():
-                    data = self.data_queue.get()
-                    # Verificar si root sigue siendo válido antes de usar after
-                    if root.winfo_exists():
-                        root.after(0, self.update_data, data, label_texts, panels)
+                if self.recording:
+                    # Primero verificar si los dispositivos están sincronizados
+                    if self.is_synchronized(self.esp_data):
+                        # Si están sincronizados, enviamos los datos a la cola y los procesamos
+                        self.data_queue.put(self.esp_data.copy())  # Agregar los datos a la cola
+                        data = self.data_queue.get()  # Extraer los datos de la cola
+                        self.process_data(data, panels)  # Procesar los datos
                     else:
-                        # Si root no existe, se sale del ciclo o se hace un cierre limpio
-                        print("El objeto root ya no existe. Cerrando la aplicación.")
-                        root.quit()  # Cierra la aplicación correctamente
-                        break
+                        # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
+                        continue
+
+    def update_gui(self, label_texts, root):
+        try:
+            if root.winfo_exists():
+                # Llama a display_data para actualizar la interfaz
+                self.display_data(self.esp_data, label_texts)
+                # Programa la próxima actualización sin necesidad de while True
+                #root.after(1, lambda: self.update_gui(label_texts, root))
+                root.after(10, self.update_gui, label_texts, root)
+            else:
+                print("El objeto root ya no existe. Cerrando la aplicación.")
+                root.quit()  # Cierra la aplicación correctamente
         except Exception as e:
             print(f"Se produjo un error: {e}")
             root.quit()  # En caso de cualquier error, cerrar la aplicación

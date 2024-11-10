@@ -144,11 +144,11 @@ def create_fsr_tab(parent, root):
     back_button.grid(row=start_row + 5, column=0, columnspan=2, pady=20)
 
     # Configurar threads para la recepción de datos y actualización de la GUI
-    receive_thread = threading.Thread(target=fsr.receive_data)
+    receive_thread = threading.Thread(target=fsr.receive_data, args=(panels, ))
     receive_thread.daemon = True
     receive_thread.start()
 
-    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root, panels))
+    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root))
 
     update_thread.daemon = True
     update_thread.start()
