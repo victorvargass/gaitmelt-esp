@@ -498,7 +498,7 @@ class FSR:
         self.thy = thy
         self.vd = vd
         self.motor_power = motor_power
-        self.max_time_sync_diff = 8  # Máxima diferencia de tiempo permitida (8 ms)
+        self.max_time_sync_diff = 16 # Máxima diferencia de tiempo permitida (8 ms)
         self.time_between_vibrations = time_between_vibrations
         self.time_between_heel_detection = time_between_heel_detection
         self.reading_mode = reading_mode
