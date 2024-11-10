@@ -61,6 +61,10 @@ def back_to_main():
     subprocess.Popen(['python', 'main.py'])  # Abrir main.py
     root.destroy()  # Cerrar vibracion.py
 
+# Función para cerrar la aplicación
+def exit_app():
+    root.quit()  # Cerrar la aplicación
+
 def create_fsr_tab(parent, root):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
     
@@ -122,26 +126,42 @@ def create_fsr_tab(parent, root):
     input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=20)
     input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
     input_output_filename.bind('<KeyRelease>', fsr.update_output_filename)
-
-    record_button = tk.Button(
-        parent,
-        text="Iniciar registro",
-        command=lambda: fsr.toggle_recording(record_button, root),
-        bg="green",
-        fg="white",
-    )
-    record_button.grid(row=start_row + 4, column=0, columnspan=3, pady=20)
     
     # Botón "Volver" para regresar a la ventana principal de selección
     back_button = tk.Button(
         parent,
-        text="Volver",
+        text="Volver al menú principal",
         command=lambda: back_to_main(),
         bg="red",
         fg="white",
-        font=("Helvetica", 14),
+        font=("Helvetica", 18),
     )
     back_button.grid(row=start_row + 5, column=0, columnspan=2, pady=20)
+
+    exit_button = tk.Button(
+        parent, 
+        text="Salir", 
+        font=("Helvetica", 14),
+        bg="red", 
+        fg="white",
+        command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
+    )
+    exit_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
+
+    canvas = tk.Canvas(parent, width=20, height=20)
+    canvas.grid(row=start_row + 4, column=1, padx=0)
+    
+    circle = canvas.create_oval(2, 2, 18, 18, fill="white")
+    canvas.itemconfig(circle, state="hidden")  # Ocultar el círculo
+    record_button = tk.Button(
+        parent,
+        text="Iniciar registro",
+        command=lambda: fsr.toggle_recording(record_button, back_button, exit_button, canvas, circle, root),
+        bg="green",
+        fg="white",
+    )
+    record_button.grid(row=start_row + 4, column=0, columnspan=3, pady=20)
+
 
     # Configurar threads para la recepción de datos y actualización de la GUI
     receive_thread = threading.Thread(target=fsr.receive_data, args=(panels, ))

@@ -803,6 +803,10 @@ class FSR:
     def init_recording(self, record_button):
         record_button.config(text="Detener registro", bg="red", fg="white")
 
+
+    def exit_app(self, root):
+        root.quit()  # Cerrar la aplicación
+
     def show_result_dialog(self, root):
         root.withdraw()  # Ocultar la ventana principal
 
@@ -844,25 +848,57 @@ class FSR:
         label2.pack(expand=True)
 
         # Botón para cerrar la ventana
-        close_button = tk.Button(window, text="Aceptar", command=lambda: self.destroy_and_reponer_main_window(window, root), font=("Arial", 12))
-        close_button.pack(pady=10)
+        continue_button = tk.Button(
+            window, 
+            text="Continuar", 
+            command=lambda: self.close_dialog_and_reopen(window, root), 
+            font=("Arial", 12),
+            bg="green", 
+            fg="white",
+        )
+        continue_button.pack(side="left", padx=20, pady=10)
+
+        # Botón para cerrar la ventana
+        close_button = tk.Button(
+            window, 
+            text="Salir", 
+            command=lambda: self.exit_app(root), 
+            font=("Arial", 12),
+            bg="red", 
+            fg="white",
+        )
+        close_button.pack(side="right", padx=20, pady=10)
         
 
-    def destroy_and_reponer_main_window(self, window, root):
+    def close_dialog_and_reopen(self, window, root):
         window.destroy()
         root.deiconify()
+    
+    # Función que hace parpadear el círculo
+    def blink_circle(self, canvas, circle, root):
+        current_color = canvas.itemcget(circle, "fill")
+        new_color = "white" if current_color == "red" else "red"
+        canvas.itemconfig(circle, fill=new_color)
+        root.after(1000, self.blink_circle, canvas, circle, root)
 
-    def toggle_recording(self, record_button, root):
+    def toggle_recording(self, record_button, back_button, exit_button, canvas, circle, root):
         self.sync_devices()
         if self.recording:
             self.show_result_dialog(root)
             self.recording = False
             self.stop_recording(record_button)
+            canvas.itemconfig(circle, state="hidden")  # Ocultar el círculo
+            back_button.config(state="normal")
+            exit_button.config(state="normal")
         else:
             self.recording = True
             if not os.path.exists(self.output_folder + "/" + self.output_filename):
                 os.makedirs(self.output_folder + "/" + self.output_filename)
             self.init_recording(record_button)
+            canvas.itemconfig(circle, state="normal")  # Ocultar el círculo
+            back_button.config(state="disabled")
+            exit_button.config(state="disabled")
+            self.blink_circle(canvas, circle, root)  # Iniciar el parpadeo
         self.reinitialize_gaitmelt_variables()
 
     def send_esp_message(self, IP, message):
