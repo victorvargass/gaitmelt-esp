@@ -31,7 +31,7 @@ OUTPUT_FOLDER = "output_data/fsr/"
 READING_MODE = True
 
 THY = 1000
-VD = 500  # 500 vibration duration
+VD = 250  # 500 vibration duration
 TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
 TIME_BETWEEN_HEEL_DETECTION = None
 MIN_DURATION_BETWEEN_HEELS = None
