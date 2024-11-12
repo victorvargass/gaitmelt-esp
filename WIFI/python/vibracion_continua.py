@@ -1,5 +1,5 @@
 import tkinter as tk
-import queue
+import os
 import threading
 from utils import VibracionContinua  # Asegúrate de que esta importación sea correcta
 import subprocess
@@ -15,6 +15,16 @@ STRUCT_FORMAT = "i fff fff i"
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 
+cmd = f"lsof -i :{SHARED_UDP_PORT} | grep {LOCAL_UDP_IP} | awk '{{print $2}}'"
+
+try:
+    pid = subprocess.check_output(cmd, shell=True).decode().strip()
+    if pid:
+        print(f"Terminando proceso con PID {pid} que está usando el puerto {SHARED_UDP_PORT}")
+        os.system(f"kill -9 {pid}")
+except subprocess.CalledProcessError:
+    print("No se pudo obtener el PID o no hay proceso asociado al puerto.")
+    
 OUTPUT_FILENAME = "Paciente 0X"
 OUTPUT_FOLDER = "output_data/vibracion_continua/"
 
