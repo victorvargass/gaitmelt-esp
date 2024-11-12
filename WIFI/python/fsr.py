@@ -152,7 +152,7 @@ def create_fsr_tab(parent, root):
     record_button = tk.Button(
         parent,
         text="Iniciar registro",
-        command=lambda: fsr.toggle_recording(record_button, back_button, exit_button, canvas, circle, root),
+        command=lambda: fsr.toggle_recording(record_button, back_button, exit_button, canvas, circle, root, panels),
         bg="green",
         fg="white",
     )

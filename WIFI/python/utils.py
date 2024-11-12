@@ -596,7 +596,10 @@ class FSR:
                 self.left_steps_ts.append(data[9])
                 panels[0].configure(bg="green")
                 panels[3].configure(bg="green")
-                self.activate_selected_motors([1, 4])
+
+    def reinit_panels(self, panels):
+        for esp_id in self.esp_indexes:
+            panels[esp_id - 1].configure(bg="white")
 
     def update_output_filename(self, event):
         new_output_filename = event.widget.get()
@@ -881,9 +884,10 @@ class FSR:
         canvas.itemconfig(circle, fill=new_color)
         root.after(1000, self.blink_circle, canvas, circle, root)
 
-    def toggle_recording(self, record_button, back_button, exit_button, canvas, circle, root):
+    def toggle_recording(self, record_button, back_button, exit_button, canvas, circle, root, panels):
         self.sync_devices()
         if self.recording:
+            self.reinit_panels(panels)
             self.show_result_dialog(root)
             self.recording = False
             self.stop_recording(record_button)
