@@ -45,6 +45,10 @@ def back_to_main():
     subprocess.Popen(['python', 'main.py'])  # Abrir main.py
     root.destroy()  # Cerrar vibracion.py
 
+# Función para cerrar la aplicación
+def exit_app():
+    root.quit()  # Cerrar la aplicación
+
 def create_vibraction_continua_tab(parent):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
     
@@ -86,23 +90,12 @@ def create_vibraction_continua_tab(parent):
         button.pack(pady=(5, 10))
 
         # Determinar las posiciones de acuerdo al número de ESPs
-        if vibracion_continua.num_esps == 4:
-            # Usar el diccionario de posiciones cuando hay 4 ESPs
-            row, col = new_positions[i]
-        else:
-            # Calcular dinámicamente para otros números (como 2)
-            row = i // 2  # División entera para determinar la fila
-            col = i % 2   # Residuo para determinar la columna (0 o 1)
+        row, col = new_positions[i]
         
         frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
-    # Asegura que las filas bajo los paneles puedan expandirse
-    for i in range(vibracion_continua.num_esps // 2, 10):  # Configura las filas adicionales necesarias
-        parent.grid_rowconfigure(i, weight=0)
-
     # Ordenar los controles adicionales en una columna debajo de los paneles
     start_row = (vibracion_continua.num_esps + 1) // 2  # Comienza justo después de los paneles
-
 
     label_output_filename = tk.Label(parent, text="Nombre del archivo")
     label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=(20, 0))
@@ -111,11 +104,16 @@ def create_vibraction_continua_tab(parent):
     input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
     input_output_filename.bind('<KeyRelease>', vibracion_continua.update_output_filename)
 
+    canvas = tk.Canvas(parent, width=20, height=20)
+    canvas.grid(row=start_row + 4, column=1, padx=0)
+    
+    circle = canvas.create_oval(2, 2, 18, 18, fill="white")
+    canvas.itemconfig(circle, state="hidden")  # Ocultar el círculo
 
     record_with_vibration_button = tk.Button(
         parent,
         text="Iniciar registro con vibración",
-        command=lambda: vibracion_continua.toggle_recording(record_with_vibration_button, True),
+        command=lambda: vibracion_continua.toggle_recording(record_with_vibration_button, True, back_button, exit_button, canvas, circle, root),
         bg="green",
         fg="white",
     )
@@ -124,7 +122,7 @@ def create_vibraction_continua_tab(parent):
     record_without_vibration_button = tk.Button(
         parent,
         text="Iniciar registro sin vibración",
-        command=lambda: vibracion_continua.toggle_recording(record_without_vibration_button, False),
+        command=lambda: vibracion_continua.toggle_recording(record_without_vibration_button, False, back_button, exit_button, canvas, circle, root),
         bg="green",
         fg="white",
     )
@@ -141,6 +139,16 @@ def create_vibraction_continua_tab(parent):
     )
     back_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
 
+    exit_button = tk.Button(
+        parent, 
+        text="Salir", 
+        font=("Helvetica", 14),
+        bg="red", 
+        fg="white",
+        command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
+    )
+    exit_button.grid(row=start_row + 7, column=0, columnspan=2, pady=20)
+
     # Configurar threads para la recepción de datos y actualización de la GUI
     receive_thread = threading.Thread(target=vibracion_continua.receive_data)
     receive_thread.daemon = True
@@ -154,6 +162,7 @@ def create_vibraction_continua_tab(parent):
 
 # Crear la nueva ventana
 root = tk.Tk()
+root.overrideredirect(True)  # Elimina los bordes y botones estándar
 root.title("Vibración continua")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
