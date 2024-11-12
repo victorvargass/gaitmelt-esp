@@ -640,7 +640,7 @@ class FSR:
         df = pd.read_csv(f"{self.output_folder}/{self.output_filename}/recorded_data.csv", delimiter=",")
         # Definir columnas de timestamp y número de filas iniciales a revisar
         timestamp_columns = ["ts_1", "ts_2", "ts_3", "ts_4"]
-        initial_rows_count = 10
+        initial_rows_count = 20
         timestamp_threshold = 500  # El umbral para detectar valores anómalos en las primeras filas
 
         for column in timestamp_columns:
@@ -655,7 +655,7 @@ class FSR:
 
         df = pd.concat([filtered_initial_df, remaining_df], ignore_index=True)
 
-        umbral = 50
+        umbral = 100
         df['diff_ts_1'] = df['ts_1'].diff()
         wrong_ts_idx = df[df['diff_ts_1'].abs() > umbral].index
         if not wrong_ts_idx.empty:
