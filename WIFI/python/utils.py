@@ -692,21 +692,24 @@ class FSR:
             if max_ts - min_ts <= self.max_time_sync_diff:
                 record_entry = [elapsed_time]
                 for esp_id in self.esp_indexes:
-                    synchronized_data = self.buffers[esp_id - 1].pop(0)
-                    record_entry.extend(
-                        [
-                            synchronized_data[9],
-                            synchronized_data[1],
-                            synchronized_data[2],
-                            synchronized_data[3],
-                            synchronized_data[4],
-                            synchronized_data[5],
-                            synchronized_data[6],
-                            synchronized_data[7],
-                            synchronized_data[8],
-                        ]
-                    )
-                    self.analyze_event(esp_id, synchronized_data, panels)
+                    try:
+                        synchronized_data = self.buffers[esp_id - 1].pop(0)
+                        record_entry.extend(
+                            [
+                                synchronized_data[9],
+                                synchronized_data[1],
+                                synchronized_data[2],
+                                synchronized_data[3],
+                                synchronized_data[4],
+                                synchronized_data[5],
+                                synchronized_data[6],
+                                synchronized_data[7],
+                                synchronized_data[8],
+                            ]
+                        )
+                        self.analyze_event(esp_id, synchronized_data, panels)
+                    except Exception as e:
+                        continue
                 self.recorded_data.append(record_entry)
             else:
                 oldest_index = tss.index(min_ts)
