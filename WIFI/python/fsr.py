@@ -171,7 +171,7 @@ def create_fsr_tab(parent, root):
 
 # Crear la nueva ventana
 root = tk.Tk()
-root.overrideredirect(True)  # Elimina los bordes y botones estándar
+root.protocol("WM_DELETE_WINDOW", lambda: None)
 root.title("FSR")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")

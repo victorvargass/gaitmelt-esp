@@ -816,7 +816,7 @@ class FSR:
         # Crear una ventana principal
         window = tk.Tk()
         
-        window.overrideredirect(True)  # Elimina los bordes y botones estándar
+        window.protocol("WM_DELETE_WINDOW", lambda: None)
 
         # Ajustar el tamaño de la ventana
         window.geometry("400x400")  # Aumenta el tamaño de la ventana

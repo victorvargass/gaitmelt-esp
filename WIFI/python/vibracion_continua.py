@@ -162,7 +162,7 @@ def create_vibraction_continua_tab(parent):
 
 # Crear la nueva ventana
 root = tk.Tk()
-root.overrideredirect(True)  # Elimina los bordes y botones estándar
+root.protocol("WM_DELETE_WINDOW", lambda: None)
 root.title("Vibración continua")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
