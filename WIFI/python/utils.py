@@ -531,8 +531,11 @@ class FSR:
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((local_ip, shared_port))
-        return sock
+        try:
+            sock.bind((local_ip, shared_port))
+            return sock
+        except Exception as e:
+            print(e)
 
     def analyze_event(self, esp_id, data, panels):
         fsr_frontal = data[7]
