@@ -109,11 +109,7 @@ def create_fsr_tab(parent, root):
         '''
 
         # Determinar las posiciones de acuerdo al número de ESPs
-        if fsr.num_esps == 4:
-            row, col = new_positions[i]
-        else:
-            row = i // 2
-            col = i % 2
+        row, col = new_positions[i]
         
         frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
@@ -175,6 +171,7 @@ def create_fsr_tab(parent, root):
 
 # Crear la nueva ventana
 root = tk.Tk()
+root.overrideredirect(True)  # Elimina los bordes y botones estándar
 root.title("FSR")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
