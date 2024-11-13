@@ -645,7 +645,7 @@ class FSR:
 
         df = pd.concat([filtered_initial_df, remaining_df], ignore_index=True)
 
-        umbral = 100
+        umbral = 200
         df['diff_ts_1'] = df['ts_1'].diff()
         wrong_ts_idx = df[df['diff_ts_1'].abs() > umbral].index
         if not wrong_ts_idx.empty:
