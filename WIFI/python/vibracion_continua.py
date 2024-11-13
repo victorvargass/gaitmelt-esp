@@ -113,7 +113,7 @@ def create_vibraction_continua_tab(parent):
     record_with_vibration_button = tk.Button(
         parent,
         text="Iniciar registro con vibración",
-        command=lambda: vibracion_continua.toggle_recording(record_with_vibration_button, True, back_button, exit_button, canvas, circle, root),
+        command=lambda: vibracion_continua.toggle_recording(record_with_vibration_button, record_without_vibration_button, True, back_button, exit_button, canvas, circle, root),
         bg="green",
         fg="white",
     )
@@ -122,7 +122,7 @@ def create_vibraction_continua_tab(parent):
     record_without_vibration_button = tk.Button(
         parent,
         text="Iniciar registro sin vibración",
-        command=lambda: vibracion_continua.toggle_recording(record_without_vibration_button, False, back_button, exit_button, canvas, circle, root),
+        command=lambda: vibracion_continua.toggle_recording(record_without_vibration_button, record_with_vibration_button, False, back_button, exit_button, canvas, circle, root),
         bg="green",
         fg="white",
     )

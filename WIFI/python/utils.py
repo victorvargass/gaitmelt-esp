@@ -34,7 +34,7 @@ class VibracionContinua:
         self.output_folder = output_folder
         self.output_filename = output_filename
         self.motor_power = motor_power
-        self.max_time_sync_diff = 8  # Máxima diferencia de tiempo permitida (8 ms)
+        self.max_time_sync_diff = 50  # Máxima diferencia de tiempo permitida (8 ms)
         self.vibration_duration = 3600000 # tiempo maximo de vibracion
 
         # Estado de grabación
@@ -49,11 +49,14 @@ class VibracionContinua:
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((local_ip, shared_port))
-        return sock
+        try:
+            sock.bind((local_ip, shared_port))
+            return sock
+        except Exception as e:
+            print(e)
 
     def save_data_to_csv(self):
-        with open(self.output_folder + "recorded_data.csv", "w", newline="") as csvfile:
+        with open(self.output_folder + "/" + self.output_filename + "/" + "recorded_data.csv", "w", newline="") as csvfile:
             csvwriter = csv.writer(csvfile)
             header = ["elapsed_time"]
             for i in self.esp_indexes:
@@ -72,63 +75,48 @@ class VibracionContinua:
             csvwriter.writerows(self.recorded_data)
 
     def clean_and_rename_csv(self):
-        df = pd.read_csv(self.output_folder + "recorded_data.csv", delimiter=",")
-        ts_columns = [
-            "ts_1",
-            "ts_2",
-            "ts_3",
-            "ts_4",
-        ]
-        for column in ts_columns:
-            df = df.drop_duplicates(subset=[column])
+        df = pd.read_csv(f"{self.output_folder}/{self.output_filename}/recorded_data.csv", delimiter=",")
+        # Definir columnas de timestamp y número de filas iniciales a revisar
+        timestamp_columns = ["ts_1", "ts_2", "ts_3", "ts_4"]
+        initial_rows_count = 20
+        timestamp_threshold = 500  # El umbral para detectar valores anómalos en las primeras filas
         
+        for column in timestamp_columns:
+            df = df.drop_duplicates(subset=[column])
+
+        initial_df = df.head(initial_rows_count)
+
+        anomaly_mask = (initial_df[timestamp_columns] > timestamp_threshold).any(axis=1)
+        filtered_initial_df = initial_df[~anomaly_mask]
+
+        remaining_df = df.iloc[initial_rows_count:]
+
+        df = pd.concat([filtered_initial_df, remaining_df], ignore_index=True)
+
+        umbral = 200
+        df['diff_ts_1'] = df['ts_1'].diff()
+        wrong_ts_idx = df[df['diff_ts_1'].abs() > umbral].index
+        if not wrong_ts_idx.empty:
+            idx_to_delete= wrong_ts_idx[0]
+            df = df.iloc[:idx_to_delete]
+        df = df.drop(columns=['diff_ts_1'])
+
         df.insert(0, "index", range(len(df)))
 
-        min_values = {}
-        df_cortado = df.copy()
-        
-        for columna in ts_columns:
-            indice_minimo = df_cortado[columna].idxmin()
-            df_cortado = df.loc[indice_minimo:]
+        output_filename = "Datos.csv"
+        df.to_csv(f"{self.output_folder}/{self.output_filename}/{output_filename}", index=False)
 
-        for columna in ts_columns:
-            valor_minimo = df_cortado[columna].min()
-            min_values[columna] = valor_minimo
+        return output_filename
 
-        diferencia = 5
-        dataframes_filtrados = []
-        maximo_total = max(min_values.values())
-
-        for n in range(1, 5):
-            umbral = maximo_total - diferencia
-            columnas_sensor = [
-                f"ts_{n}", 
-                f"acc_x_{n}", 
-                f"acc_y_{n}", 
-                f"acc_z_{n}", 
-                f"gyr_x_{n}", 
-                f"gyr_y_{n}", 
-                f"gyr_z_{n}"
-            ]
-            df_filtrado = df_cortado[df_cortado[f"ts_{n}"] >= umbral][columnas_sensor]
-            dataframes_filtrados.append(df_filtrado)
-
-        min_length = min(len(df) for df in dataframes_filtrados)
-        dataframes_recortados = [df.iloc[:min_length].reset_index(drop=True) for df in dataframes_filtrados]
-
-        resultado_final = pd.concat(dataframes_recortados, axis=1)
-
-        filename = "Datos.csv"
-        resultado_final.to_csv(self.output_folder + "/" + filename, index=False)
-        
-        return filename
-
-    def update_data(self, data, label_texts):
+    def process_data(self, data):
+        # Verificamos si la grabación ha comenzado, reiniciando los buffers y otros valores
+        if self.start_time is None:
+            # Reiniciar el tiempo de inicio y otros valores necesarios
+            self.start_time = time.time()
+            self.init_time = datetime.now().strftime("%H:%M:%S")
+            self.data_queue = queue.Queue()
+            self.buffers = [[] for _ in range(self.num_esps)]  # Reiniciar los buffers
         if self.recording:
-            if self.start_time is None:
-                self.start_time = time.time()
-                self.data_queue = queue.Queue()
-                self.buffers = [[] for _ in range(self.num_esps)]
             elapsed_time = time.time() - self.start_time
 
             for esp_id in self.esp_indexes:
@@ -136,31 +124,23 @@ class VibracionContinua:
                     self.buffers[esp_id - 1].append(data[esp_id - 1])
 
             while all(self.buffers):
-                tss = [self.buffers[esp_id - 1][-1][9] for esp_id in self.esp_indexes]
-                min_ts = min(tss)
-                max_ts = max(tss)
-                if max_ts - min_ts <= self.max_time_sync_diff:
-                    record_entry = [elapsed_time]
-                    for esp_id in self.esp_indexes:
-                        synchronized_data = self.buffers[esp_id - 1].pop(0)
-                        record_entry.extend(
-                            [
-                                synchronized_data[9],
-                                synchronized_data[1],
-                                synchronized_data[2],
-                                synchronized_data[3],
-                                synchronized_data[4],
-                                synchronized_data[5],
-                                synchronized_data[6],
-                                synchronized_data[7],
-                                synchronized_data[8],
-                            ]
-                        )
-                    self.recorded_data.append(record_entry)
-                else:
-                    oldest_index = tss.index(min_ts)
-                    self.buffers[oldest_index].pop(0)
+                record_entry = [elapsed_time]
+                for esp_id in self.esp_indexes:
+                    synchronized_data = self.buffers[esp_id - 1].pop(0)
+                    record_entry.extend(
+                        [
+                            synchronized_data[7],
+                            synchronized_data[1],
+                            synchronized_data[2],
+                            synchronized_data[3],
+                            synchronized_data[4],
+                            synchronized_data[5],
+                            synchronized_data[6],
+                        ]
+                    )
+                self.recorded_data.append(record_entry)
 
+    def display_data(self, data, label_texts):
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is not None:
                 board_id = data[esp_id - 1][0]
@@ -175,6 +155,21 @@ class VibracionContinua:
             else:
                 label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
 
+    def is_synchronized(self, data):
+        timestamps = [reading[7] for reading in data if reading is not None]
+        
+        if len(timestamps) < len(self.esp_indexes):
+            return False  # No todos los dispositivos han enviado datos aún
+
+        min_ts = min(timestamps)
+        max_ts = max(timestamps)
+        
+        # Definir un máximo de diferencia entre los timestamps para considerar que están sincronizados
+        if max_ts - min_ts <= self.max_time_sync_diff:
+            return True
+        else:
+            return False
+
     def receive_data(self):
         while True:
             data, _ = self.sock.recvfrom(1024)
@@ -182,24 +177,41 @@ class VibracionContinua:
                 readings = struct.unpack(self.struct_format, data)
                 esp_id = readings[0]
                 self.esp_data[esp_id - 1] = readings
-                self.data_queue.put(self.esp_data.copy())
+
+                if self.recording:
+                    # Primero verificar si los dispositivos están sincronizados
+                    if self.is_synchronized(self.esp_data):
+                        # Si están sincronizados, enviamos los datos a la cola y los procesamos
+                        self.data_queue.put(self.esp_data.copy())  # Agregar los datos a la cola
+                        data = self.data_queue.get()  # Extraer los datos de la cola
+                        self.process_data(data)  # Procesar los datos
+                    else:
+                        # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
+                        continue
 
     def update_gui(self, label_texts, root):
-        while True:
-            if not self.data_queue.empty():
-                data = self.data_queue.get()
-                root.after(
-                    0,
-                    self.update_data,
-                    data,
-                    label_texts,
-                )
+        try:
+            if root.winfo_exists():
+                # Llama a display_data para actualizar la interfaz
+                self.display_data(self.esp_data, label_texts)
+                # Programa la próxima actualización sin necesidad de while True
+                root.after(10, self.update_gui, label_texts, root)
+            else:
+                root.quit()  # Cierra la aplicación correctamente
+        except Exception as e:
+            print(f"Se produjo un error: {e}")
+            root.quit()  # En caso de cualquier error, cerrar la aplicación
+
+    def reinitialize_gaitmelt_variables(self):
+        self.recorded_data = []
+        self.start_time = None
+        self.buffers = [[] for _ in range(self.num_esps)]
 
     def stop_recording(self, record_button, vibration):
         self.save_data_to_csv()
         final_csv_filename = self.clean_and_rename_csv()
         self.plot_acc_data(final_csv_filename)
-        os.remove(self.output_folder + "recorded_data.csv")
+        os.remove(self.output_folder + "/" + self.output_filename + "/" + "recorded_data.csv")
         if vibration:
             button_text = "Iniciar registro con vibración"
         else:
@@ -209,20 +221,110 @@ class VibracionContinua:
     def init_recording(self, record_button):
         record_button.config(text="Detener registro", bg="red", fg="white")
 
-    def toggle_recording(self, record_button, vibration):
+    def exit_app(self, root):
+        root.quit()  # Cerrar la aplicación
+
+    def show_result_dialog(self, root):
+        root.withdraw()  # Ocultar la ventana principal
+
+        # Crear una ventana principal
+        window = tk.Tk()
+        
+        #window.overrideredirect(True)  # Elimina los bordes y botones estándar
+        window.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        # Ajustar el tamaño de la ventana
+        window.geometry("400x400")  # Aumenta el tamaño de la ventana
+        
+        # Establecer el título de la ventana
+        window.title("Registro Finalizado")
+        window.resizable(False, False)  # Permite redimensionar la ventana
+        
+        # Calcular la posición para centrar la ventana en la pantalla
+        screen_width = window.winfo_screenwidth()  # Ancho de la pantalla
+        screen_height = window.winfo_screenheight()  # Altura de la pantalla
+        
+        # Obtener las dimensiones de la ventana
+        window_width = 600  # Ancho de la ventana
+        window_height = 200  # Altura de la ventana
+        
+        # Calcular las coordenadas para centrar la ventana
+        position_top = int(screen_height / 2 - window_height / 2)
+        position_left = int(screen_width / 2 - window_width / 2)
+        
+        # Establecer la posición de la ventana
+        window.geometry(f"{window_width}x{window_height}+{position_left}+{position_top}")
+        
+        # Crear un label (etiqueta) para el mensaje inicial
+        message1 = "El registro ha finalizado con éxito.\nLos archivos han quedado guardados en:"
+        label1 = tk.Label(window, text=message1, font=("Segoe UI", 20), padx=20, pady=20, justify="center")
+        label1.pack(expand=True)
+
+        # Crear un label (etiqueta) para la ruta en negrita
+        message2 = f"{self.output_folder}{self.output_filename}/"
+        label2 = tk.Label(window, text=message2, font=("Segoe UI", 20, "bold"), padx=20, pady=10, justify="center")
+        label2.pack(expand=True)
+
+        # Botón para cerrar la ventana
+        continue_button = tk.Button(
+            window, 
+            text="Continuar", 
+            command=lambda: self.close_dialog_and_reopen(window, root), 
+            font=("Arial", 12),
+            bg="green", 
+            fg="white",
+        )
+        continue_button.pack(side="left", padx=20, pady=10)
+
+        # Botón para cerrar la ventana
+        close_button = tk.Button(
+            window, 
+            text="Salir", 
+            command=lambda: self.exit_app(root), 
+            font=("Arial", 12),
+            bg="red", 
+            fg="white",
+        )
+        close_button.pack(side="right", padx=20, pady=10)
+        
+
+    def close_dialog_and_reopen(self, window, root):
+        window.destroy()
+        root.deiconify()
+    
+    # Función que hace parpadear el círculo
+    def blink_circle(self, canvas, circle, root):
+        current_color = canvas.itemcget(circle, "fill")
+        new_color = "white" if current_color == "red" else "red"
+        canvas.itemconfig(circle, fill=new_color)
+        root.after(1000, self.blink_circle, canvas, circle, root)
+
+
+    def toggle_recording(self, record_button, another_record_button, vibration, back_button, exit_button, canvas, circle, root):
         self.sync_devices()
         if self.recording:
             if vibration:
                 self.stop_selected_motors(self.esp_indexes)
+            self.show_result_dialog(root)
             self.recording = False
             self.stop_recording(record_button, vibration)
+            canvas.itemconfig(circle, state="hidden")  # Ocultar el círculo
+            another_record_button.config(state="normal")
+            back_button.config(state="normal")
+            exit_button.config(state="normal")
         else:
             self.recording = True
+            if not os.path.exists(self.output_folder + "/" + self.output_filename):
+                os.makedirs(self.output_folder + "/" + self.output_filename)
             self.init_recording(record_button)
             if vibration:
                 self.activate_selected_motors(self.esp_indexes)
-        self.start_time = None
-        self.recorded_data = []
+            canvas.itemconfig(circle, state="normal")  # Ocultar el círculo
+            another_record_button.config(state="disabled")
+            back_button.config(state="disabled")
+            exit_button.config(state="disabled")
+            self.blink_circle(canvas, circle, root)  # Iniciar el parpadeo
+        self.reinitialize_gaitmelt_variables()
 
     def send_esp_message(self, IP, message):
         try:
@@ -296,13 +398,11 @@ class VibracionContinua:
     def plot_acc_data(self, csv_filename):
         # Lee el archivo CSV
         accSetColors = ["red", "blue", "green"]
-        gyrSetColors = ["purple", "orange", "pink"]
 
         acc_y_lims = (-25, 25)
-        gyr_y_lims = (-10, 10)
 
         try:
-            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
+            df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/" +  csv_filename, sep=",")
         except FileNotFoundError:
             print("Error: Archivo no encontrado.")
             return
@@ -319,33 +419,33 @@ class VibracionContinua:
         ]
 
         # Plot para acc_data
-        axs[0, 0].plot(df["ts_1"], df["acc_x_1"], label="x", color=accSetColors[0])
-        axs[0, 0].plot(df["ts_1"], df["acc_y_1"], label="y", color=accSetColors[1])
-        axs[0, 0].plot(df["ts_1"], df["acc_z_1"], label="z", color=accSetColors[2])
+        axs[0, 0].plot(df["elapsed_time"], df["acc_x_1"], label="x", color=accSetColors[0])
+        axs[0, 0].plot(df["elapsed_time"], df["acc_y_1"], label="y", color=accSetColors[1])
+        axs[0, 0].plot(df["elapsed_time"], df["acc_z_1"], label="z", color=accSetColors[2])
         axs[0, 0].set_title(f"{sensor_titles[0]}")
         axs[0, 0].set_ylabel("Aceleración")
         axs[0, 0].legend(loc="lower left")
         axs[0, 0].set_ylim(acc_y_lims)
 
-        axs[0, 1].plot(df["ts_1"], df["acc_x_2"], label="x", color=accSetColors[0])
-        axs[0, 1].plot(df["ts_1"], df["acc_y_2"], label="y", color=accSetColors[1])
-        axs[0, 1].plot(df["ts_1"], df["acc_z_2"], label="z", color=accSetColors[2])
+        axs[0, 1].plot(df["elapsed_time"], df["acc_x_2"], label="x", color=accSetColors[0])
+        axs[0, 1].plot(df["elapsed_time"], df["acc_y_2"], label="y", color=accSetColors[1])
+        axs[0, 1].plot(df["elapsed_time"], df["acc_z_2"], label="z", color=accSetColors[2])
         axs[0, 1].set_title(f"{sensor_titles[1]}")
         axs[0, 1].set_ylabel("Aceleración")
         axs[0, 1].legend(loc="lower left")
         axs[0, 1].set_ylim(acc_y_lims)
 
-        axs[1, 0].plot(df["ts_1"], df["acc_x_3"], label="x", color=accSetColors[0])
-        axs[1, 0].plot(df["ts_1"], df["acc_y_3"], label="y", color=accSetColors[1])
-        axs[1, 0].plot(df["ts_1"], df["acc_z_3"], label="z", color=accSetColors[2])
+        axs[1, 0].plot(df["elapsed_time"], df["acc_x_3"], label="x", color=accSetColors[0])
+        axs[1, 0].plot(df["elapsed_time"], df["acc_y_3"], label="y", color=accSetColors[1])
+        axs[1, 0].plot(df["elapsed_time"], df["acc_z_3"], label="z", color=accSetColors[2])
         axs[1, 0].set_title(f"{sensor_titles[2]}")
         axs[1, 0].set_ylabel("Aceleración")
         axs[1, 0].legend(loc="lower left")
         axs[1, 0].set_ylim(acc_y_lims)
 
-        axs[1, 1].plot(df["ts_1"], df["acc_x_4"], label="x", color=accSetColors[0])
-        axs[1, 1].plot(df["ts_1"], df["acc_y_4"], label="y", color=accSetColors[1])
-        axs[1, 1].plot(df["ts_1"], df["acc_z_4"], label="z", color=accSetColors[2])
+        axs[1, 1].plot(df["elapsed_time"], df["acc_x_4"], label="x", color=accSetColors[0])
+        axs[1, 1].plot(df["elapsed_time"], df["acc_y_4"], label="y", color=accSetColors[1])
+        axs[1, 1].plot(df["elapsed_time"], df["acc_z_4"], label="z", color=accSetColors[2])
         axs[1, 1].set_title(f"{sensor_titles[3]}")
         axs[1, 1].set_ylabel("Aceleración")
         axs[1, 1].legend(loc="lower left")
@@ -354,14 +454,13 @@ class VibracionContinua:
         fig.supxlabel("Tiempo [s]")
 
         # Ajustar el diseño
-        suptitle = csv_filename.split(".")[0]
+        suptitle = self.output_filename
 
         plt.suptitle(suptitle)
         plt.tight_layout()
         plt.savefig(
-            self.output_folder + "/" + suptitle + ".png"
+            self.output_folder + "/" + self.output_filename + "/" + "Gráficas.png"
         )  # Guardar el gráfico como una imagen PNG
-        plt.show()
 
     def plot_data(self, csv_filename):
         # Lee el archivo CSV
@@ -372,7 +471,7 @@ class VibracionContinua:
         gyr_y_lims = (-10, 10)
 
         try:
-            df = pd.read_csv(self.output_folder + "/" + csv_filename, sep=",")
+            df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/" +  csv_filename, sep=",")
         except FileNotFoundError:
             print("Error: Archivo no encontrado.")
             return
@@ -457,14 +556,13 @@ class VibracionContinua:
         fig.supxlabel("Tiempo [s]")
 
         # Ajustar el diseño
-        suptitle = csv_filename.split(".")[0]
+        suptitle = self.output_filename
 
         plt.suptitle(suptitle)
         plt.tight_layout()
         plt.savefig(
-            self.output_folder + "/" + suptitle + ".png"
+            self.output_folder + "/" + self.output_filename + "/" + "Gráficas.png"
         )  # Guardar el gráfico como una imagen PNG
-        plt.show()
 
 
 
