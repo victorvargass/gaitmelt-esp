@@ -514,12 +514,13 @@ class FSR:
 
         # Variables caminata
         self.last_vibration_ts = [
-            0 for _ in range(self.num_esps)
+            0 for _ in range(2)
         ]  # TS de la última vibración
         self.min_duration_between_heels = (
             min_duration_between_heels  # Duracion minima entre talones
         )
-        self.vibrating = [False for _ in range(self.num_esps)]
+        self.vibrating = [False for _ in range(2)]
+        self.fsr = [False for _ in range(2)]
         self.last_vibration_esp = 0
         self.vibration_offset = vibration_offset
         self.esp_len_vibration = 0
@@ -542,64 +543,82 @@ class FSR:
         fsr_trasero = data[8]
         current_ts = time.time()
 
+        '''
+        # Detecta si ambos sensores de los pies están en "stand by"
+        both_feet_active = (
+            (fsr_frontal > self.thy or fsr_trasero > self.thy)  # Sensor frontal o trasero del pie izquierdo
+            and (self.vibrating[0] and self.vibrating[1])       # Vibración en pie izquierdo o derecho
+        )
+
+        if both_feet_active:
+            print("Paciente en stand by: ambos pies activados")
+            for panel in panels:
+                panel.configure(bg="blue")  # Cambiar el color de los paneles para indicar "stand by"
+            return  # Sale de la función, asumiendo que no se necesita procesar más si ambos pies están activos
+        '''
+        # Resto del código para vibración individual de pies
         if (
             esp_id == 2
-            and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
+            and (current_ts - self.last_vibration_ts[0]) * 1000 <= self.vd
             and not self.vibrating[0]
         ):
             self.vibrating[0] = True
-            #print("Vibrando...", esp_id)
         if (
             esp_id == 4
-            and (current_ts - self.last_vibration_ts[3]) * 1000 <= self.vd
+            and (current_ts - self.last_vibration_ts[1]) * 1000 <= self.vd
             and not self.vibrating[1]
         ):
             self.vibrating[1] = True
-            #print("Vibrando...", esp_id)
 
         if (
             esp_id == 2
-            and (current_ts - self.last_vibration_ts[1]) * 1000 > self.vd
+            and (current_ts - self.last_vibration_ts[0]) * 1000 > self.vd
             and self.vibrating[0]
         ):
             self.vibrating[0] = False
             panels[1].configure(bg="white")
             panels[2].configure(bg="white")
-            #print("Dejó de vibrar", esp_id)
         if (
             esp_id == 4
-            and (current_ts - self.last_vibration_ts[3]) * 1000 > self.vd
+            and (current_ts - self.last_vibration_ts[1]) * 1000 > self.vd
             and self.vibrating[1]
         ):
             self.vibrating[1] = False
             panels[0].configure(bg="white")
             panels[3].configure(bg="white")
-            #print("Dejó de vibrar", esp_id)
-        if (
-            esp_id in [2, 4] and (fsr_frontal > self.thy or fsr_trasero > self.thy)
-        ): 
-            if (
-                esp_id == 2
-                and current_ts - self.last_vibration_ts[1]
-                > self.time_between_vibrations
-            ):
-                print("activar vibracion 2 y 3", fsr_frontal, current_ts - self.last_vibration_ts[1])
-                self.last_vibration_ts[1] = current_ts
+
+        # Verifica si solo uno de los sensores supera el umbral
+        if esp_id == 2:
+            if (fsr_frontal > self.thy or fsr_trasero > self.thy):
+                self.fsr[0] = True
+            if (fsr_frontal < self.thy and fsr_trasero < self.thy):
+                self.fsr[0] = False
+        if esp_id == 4:
+            if (fsr_frontal > self.thy or fsr_trasero > self.thy):
+                self.fsr[1] = True
+            if (fsr_frontal < self.thy and fsr_trasero < self.thy):
+                self.fsr[1] = False
+        
+        if self.fsr[0] ^ self.fsr[1]:
+            if self.fsr[0] and current_ts - self.last_vibration_ts[0] > self.time_between_vibrations:
+                print("Activar vibración 2 y 3", fsr_frontal, current_ts - self.last_vibration_ts[0])
+                self.last_vibration_ts[0] = current_ts
                 self.right_steps_ts.append(data[9])
+                panels[0].configure(bg="white")
+                panels[3].configure(bg="white")
                 panels[1].configure(bg="green")
                 panels[2].configure(bg="green")
-                self.activate_selected_motors([2, 3])
-            elif (
-                esp_id == 4
-                and current_ts - self.last_vibration_ts[3]
-                > self.time_between_vibrations
-            ):
-                print("activar vibracion 1 y 4", esp_id, fsr_frontal, current_ts - self.last_vibration_ts[3])
-                self.last_vibration_ts[3] = current_ts
+
+            if self.fsr[1] and current_ts - self.last_vibration_ts[1] > self.time_between_vibrations:
+                print("Activar vibración 1 y 4", esp_id, fsr_frontal, current_ts - self.last_vibration_ts[1])
+                self.last_vibration_ts[1] = current_ts
                 self.left_steps_ts.append(data[9])
                 panels[0].configure(bg="green")
                 panels[3].configure(bg="green")
-
+                panels[1].configure(bg="white")
+                panels[2].configure(bg="white")
+            
+                
     def reinit_panels(self, panels):
         for esp_id in self.esp_indexes:
             panels[esp_id - 1].configure(bg="white")
