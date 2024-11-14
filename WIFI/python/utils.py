@@ -172,22 +172,26 @@ class VibracionContinua:
 
     def receive_data(self):
         while True:
-            data, _ = self.sock.recvfrom(1024)
-            if len(data) == struct.calcsize(self.struct_format):
-                readings = struct.unpack(self.struct_format, data)
-                esp_id = readings[0]
-                self.esp_data[esp_id - 1] = readings
+            try:
+                data, _ = self.sock.recvfrom(1024)
+                if len(data) == struct.calcsize(self.struct_format):
+                    readings = struct.unpack(self.struct_format, data)
+                    esp_id = readings[0]
+                    self.esp_data[esp_id - 1] = readings
 
-                if self.recording:
-                    # Primero verificar si los dispositivos están sincronizados
-                    if self.is_synchronized(self.esp_data):
-                        # Si están sincronizados, enviamos los datos a la cola y los procesamos
-                        self.data_queue.put(self.esp_data.copy())  # Agregar los datos a la cola
-                        data = self.data_queue.get()  # Extraer los datos de la cola
-                        self.process_data(data)  # Procesar los datos
-                    else:
-                        # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
-                        continue
+                    if self.recording:
+                        # Primero verificar si los dispositivos están sincronizados
+                        if self.is_synchronized(self.esp_data):
+                            # Si están sincronizados, enviamos los datos a la cola y los procesamos
+                            self.data_queue.put(self.esp_data.copy())  # Agregar los datos a la cola
+                            data = self.data_queue.get()  # Extraer los datos de la cola
+                            self.process_data(data)  # Procesar los datos
+                        else:
+                            # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
+                            continue
+            except:
+                print("Error de conexión")
+                self.setup_socket(self.local_udp_ip, self.shared_port)
 
     def update_gui(self, label_texts, root):
         try:
@@ -848,22 +852,26 @@ class FSR:
 
     def receive_data(self, panels):
         while True:
-            data, _ = self.sock.recvfrom(1024)
-            if len(data) == struct.calcsize(self.struct_format):
-                readings = struct.unpack(self.struct_format, data)
-                esp_id = readings[0]
-                self.esp_data[esp_id - 1] = readings
+            try:
+                data, _ = self.sock.recvfrom(1024)
+                if len(data) == struct.calcsize(self.struct_format):
+                    readings = struct.unpack(self.struct_format, data)
+                    esp_id = readings[0]
+                    self.esp_data[esp_id - 1] = readings
 
-                if self.recording:
-                    # Primero verificar si los dispositivos están sincronizados
-                    if self.is_synchronized(self.esp_data):
-                        # Si están sincronizados, enviamos los datos a la cola y los procesamos
-                        self.data_queue.put(self.esp_data.copy())  # Agregar los datos a la cola
-                        data = self.data_queue.get()  # Extraer los datos de la cola
-                        self.process_data(data, panels)  # Procesar los datos
-                    else:
-                        # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
-                        continue
+                    if self.recording:
+                        # Primero verificar si los dispositivos están sincronizados
+                        if self.is_synchronized(self.esp_data):
+                            # Si están sincronizados, enviamos los datos a la cola y los procesamos
+                            self.data_queue.put(self.esp_data.copy())  # Agregar los datos a la cola
+                            data = self.data_queue.get()  # Extraer los datos de la cola
+                            self.process_data(data, panels)  # Procesar los datos
+                        else:
+                            # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
+                            continue
+            except:
+                print("Error de conexión")
+                self.setup_socket(self.local_udp_ip, self.shared_port)
 
     def update_gui(self, label_texts, root):
         try:
