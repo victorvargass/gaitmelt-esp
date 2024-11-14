@@ -154,7 +154,7 @@ def create_fsr_tab(parent, root):
     receive_thread.daemon = True
     receive_thread.start()
 
-    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root))
+    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root, record_button))
 
     update_thread.daemon = True
     update_thread.start()
