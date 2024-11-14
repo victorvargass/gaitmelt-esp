@@ -144,7 +144,7 @@ def create_vibraction_continua_tab(parent):
     receive_thread.daemon = True
     receive_thread.start()
 
-    update_thread = threading.Thread(target=vibracion_continua.update_gui, args=(label_texts, root))
+    update_thread = threading.Thread(target=vibracion_continua.update_gui, args=(label_texts, root, record_with_vibration_button, record_without_vibration_button))
 
     update_thread.daemon = True
     update_thread.start()

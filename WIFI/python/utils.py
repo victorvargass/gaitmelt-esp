@@ -46,6 +46,7 @@ class VibracionContinua:
 
         self.data_queue = queue.Queue()
         self.esp_data = [None] * self.num_esps
+        self.last_received = [None] * self.num_esps
 
     def setup_socket(self, local_ip, shared_port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -140,9 +141,26 @@ class VibracionContinua:
                     )
                 self.recorded_data.append(record_entry)
 
-    def display_data(self, data, label_texts):
+    def all_devices_active(self, current_time):
+        for last_time in self.last_received:
+            if last_time is None or (current_time - last_time) > 2:
+                return False
+        return True
+
+    def display_data(self, data, label_texts, record_with_vibration_button, record_without_vibration_button):
+        current_time = time.time()
+        all_active = self.all_devices_active(current_time)
+        
+        record_state = "normal" if all_active else "disabled"
+        record_with_vibration_button.config(state=record_state)
+        record_without_vibration_button.config(state=record_state)
+
         for esp_id in self.esp_indexes:
-            if data[esp_id - 1] is not None:
+            if data[esp_id - 1] is None or \
+            self.last_received[esp_id - 1] is None or \
+            (current_time - self.last_received[esp_id - 1]) > 2:
+                label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
+            else:
                 board_id = data[esp_id - 1][0]
                 label_texts[esp_id - 1].set(
                     f"Board ID: {board_id}\n"
@@ -152,8 +170,6 @@ class VibracionContinua:
                     f"Z  {round(data[esp_id - 1][3], 2):<7}   {round(data[esp_id - 1][6], 2):<7}\n"
                     f"Timestamp: {data[esp_id - 1][7]}"
                 )
-            else:
-                label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
 
     def is_synchronized(self, data):
         timestamps = [reading[7] for reading in data if reading is not None]
@@ -178,6 +194,7 @@ class VibracionContinua:
                     readings = struct.unpack(self.struct_format, data)
                     esp_id = readings[0]
                     self.esp_data[esp_id - 1] = readings
+                    self.last_received[esp_id - 1] = time.time()  # Registrar la hora de recepción
 
                     if self.recording:
                         # Primero verificar si los dispositivos están sincronizados
@@ -192,13 +209,13 @@ class VibracionContinua:
             except:
                 self.setup_socket(self.local_udp_ip, self.shared_port)
 
-    def update_gui(self, label_texts, root):
+    def update_gui(self, label_texts, root, record_with_vibration_button, record_without_vibration_button):
         try:
             if root.winfo_exists():
                 # Llama a display_data para actualizar la interfaz
-                self.display_data(self.esp_data, label_texts)
+                self.display_data(self.esp_data, label_texts, record_with_vibration_button, record_without_vibration_button)
                 # Programa la próxima actualización sin necesidad de while True
-                root.after(10, self.update_gui, label_texts, root)
+                root.after(10, self.update_gui, label_texts, root, record_with_vibration_button, record_without_vibration_button)
             else:
                 root.quit()  # Cierra la aplicación correctamente
         except Exception as e:
