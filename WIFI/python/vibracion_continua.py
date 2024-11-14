@@ -69,6 +69,7 @@ def create_vibraction_continua_tab(parent):
         label.pack(pady=(10, 5), expand=True, fill='both')
 
         # Botón dentro del frame
+        '''
         button = tk.Button(
             frame,
             text=f"Activar vibrador",
@@ -78,6 +79,7 @@ def create_vibraction_continua_tab(parent):
             font=("Helvetica", 12),
         )
         button.pack(pady=(5, 10))
+        '''
 
         # Determinar las posiciones de acuerdo al número de ESPs
         row, col = new_positions[i]
