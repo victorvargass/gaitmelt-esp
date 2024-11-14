@@ -93,7 +93,7 @@ class VibracionContinua:
 
         df = pd.concat([filtered_initial_df, remaining_df], ignore_index=True)
 
-        umbral = 200
+        umbral = 500
         df['diff_ts_1'] = df['ts_1'].diff()
         wrong_ts_idx = df[df['diff_ts_1'].abs() > umbral].index
         if not wrong_ts_idx.empty:
@@ -746,7 +746,7 @@ class FSR:
 
         df = pd.concat([filtered_initial_df, remaining_df], ignore_index=True)
 
-        umbral = 200
+        umbral = 500
         df['diff_ts_1'] = df['ts_1'].diff()
         wrong_ts_idx = df[df['diff_ts_1'].abs() > umbral].index
         if not wrong_ts_idx.empty:
