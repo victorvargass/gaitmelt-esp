@@ -127,7 +127,7 @@ def create_fsr_tab(parent, root):
     exit_button = tk.Button(
         parent, 
         text="Salir", 
-        font=("Helvetica", 14),
+        font=("Helvetica", 18),
         bg="red", 
         fg="white",
         command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"

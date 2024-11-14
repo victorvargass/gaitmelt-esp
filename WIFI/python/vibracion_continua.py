@@ -121,18 +121,18 @@ def create_vibraction_continua_tab(parent):
     # Botón "Volver" para regresar a la ventana principal de selección
     back_button = tk.Button(
         parent,
-        text="Volver",
+        text="Volver al menú principal",
         command=lambda: back_to_main(),
         bg="red",
         fg="white",
-        font=("Helvetica", 14),
+        font=("Helvetica", 18),
     )
     back_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
 
     exit_button = tk.Button(
         parent, 
         text="Salir", 
-        font=("Helvetica", 14),
+        font=("Helvetica", 18),
         bg="red", 
         fg="white",
         command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
