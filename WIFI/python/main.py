@@ -9,10 +9,9 @@ cmd = f"lsof -i :{SHARED_UDP_PORT} | grep -v 'PID' | awk '{{print $2}}'"
 try:
     pid = subprocess.check_output(cmd, shell=True).decode().strip()
     if pid:
-        print(f"Terminando proceso con PID {pid} que está usando el puerto {SHARED_UDP_PORT}")
         os.system(f"kill -9 {pid}")
     else:
-        print("No hay proceso corriendo...")
+        pass
 except subprocess.CalledProcessError:
     print("No se pudo obtener el PID o no hay proceso asociado al puerto.")
 
