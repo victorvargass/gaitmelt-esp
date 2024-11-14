@@ -128,5 +128,9 @@ button_exit = tk.Button(
 )
 button_exit.pack()
 
+# Agregar el texto de la versión en la esquina superior derecha
+version_label = tk.Label(root, text="Versión 2.2.01", font=("Helvetica", 16), bg="white", fg="black")
+version_label.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10)  # Ajustar posición cerca de la esquina
+
 # Ejecutar la interfaz
 root.mainloop()
