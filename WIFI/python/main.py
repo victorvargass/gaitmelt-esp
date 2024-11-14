@@ -53,16 +53,22 @@ position_y = (screen_height - window_height) // 2
 root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")  # Centrar ventana
 
 # Cargar la imagen (asegurarse de tener la imagen en el directorio correcto)
-image = tk.PhotoImage(file="leufulab.png")  # Cambiar a la ruta de tu imagen
-image = image.subsample(10, 10)  # Reducir tamaño a 40x40 (ajustar factor según tamaño original)
+logo = tk.PhotoImage(file="src/leufulab.png")
+logo = logo.subsample(10, 10)
+
+model = tk.PhotoImage(file="src/model.png")
+model = model.subsample(3, 3)
 
 # Crear un Frame para el texto y los botones
 main_frame = tk.Frame(root, bg="white")
 main_frame.pack(expand=True)
 
 # Colocar la imagen arriba de todo
-image_label = tk.Label(main_frame, image=image, bg="white")
-image_label.pack(pady=20)
+model_label = tk.Label(main_frame, image=model, bg="white")
+model_label.place(x=-30, y=0)
+
+logo_label = tk.Label(main_frame, image=logo, bg="white")
+logo_label.pack(pady=20)
 
 # Crear un Label para el texto "Seleccionar tarea"
 label_tarea = tk.Label(main_frame, text="Seleccionar tarea", font=("Helvetica", 24), bg="white")
