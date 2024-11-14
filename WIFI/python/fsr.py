@@ -1,5 +1,4 @@
 import tkinter as tk
-import os
 import threading
 from utils import FSR  # Asegúrate de que esta importación sea correcta
 import subprocess
