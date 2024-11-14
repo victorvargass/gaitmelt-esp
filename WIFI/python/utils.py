@@ -54,7 +54,7 @@ class VibracionContinua:
             sock.bind((local_ip, shared_port))
             return sock
         except Exception as e:
-            print(e)
+            print("Conectar a red wifi Gaitmelt y reiniciar la aplicación")
 
     def save_data_to_csv(self):
         with open(self.output_folder + "/" + self.output_filename + "/" + "recorded_data.csv", "w", newline="") as csvfile:
@@ -207,7 +207,7 @@ class VibracionContinua:
                             # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
                             continue
             except:
-                self.setup_socket(self.local_udp_ip, self.shared_port)
+                pass
 
     def update_gui(self, label_texts, root, record_with_vibration_button, record_without_vibration_button):
         try:
@@ -653,7 +653,7 @@ class FSR:
             sock.bind((local_ip, shared_port))
             return sock
         except Exception as e:
-            print(e)
+            print("Conectar a red wifi Gaitmelt y reiniciar la aplicación")
 
     def analyze_event(self, esp_id, data, panels):
         fsr_frontal = data[7]
@@ -885,7 +885,7 @@ class FSR:
                             # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
                             continue
             except:
-                self.setup_socket(self.local_udp_ip, self.shared_port)
+                pass
 
     def update_gui(self, label_texts, root):
         try:
