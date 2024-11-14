@@ -643,6 +643,7 @@ class FSR:
         self.vibration_offset = vibration_offset
         self.data_queue = queue.Queue()
         self.esp_data = [None] * self.num_esps
+        self.last_received = [None] * self.num_esps
 
         self.total_time = 0
         self.init_time = 0
@@ -823,9 +824,25 @@ class FSR:
                 oldest_index = tss.index(min_ts)
                 self.buffers[oldest_index].pop(0)
 
-    def display_data(self, data, label_texts):
+    def all_devices_active(self, current_time):
+        for last_time in self.last_received:
+            if last_time is None or (current_time - last_time) > 2:
+                return False
+        return True
+    
+    def display_data(self, data, label_texts, record_button):
+        current_time = time.time()
+        all_active = self.all_devices_active(current_time)
+        
+        record_state = "normal" if all_active else "disabled"
+        record_button.config(state=record_state)
+        
         for esp_id in self.esp_indexes:
-            if data[esp_id - 1] is not None:
+            if data[esp_id - 1] is None or \
+            self.last_received[esp_id - 1] is None or \
+            (current_time - self.last_received[esp_id - 1]) > 2:
+                label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
+            else:
                 board_id = data[esp_id - 1][0]
                 if board_id == 1 or board_id == 3:
                     label_texts[esp_id - 1].set(
@@ -847,8 +864,6 @@ class FSR:
                         f"FSR Trasero  {round(data[esp_id - 1][8], 2):<7}\n"
                         f"Timestamp: {data[esp_id - 1][9]}"
                     )
-            else:
-                label_texts[esp_id - 1].set(f"Board {esp_id} no conectada")
 
     def is_synchronized(self, data):
         timestamps = [reading[9] for reading in data if reading is not None]
@@ -873,6 +888,7 @@ class FSR:
                     readings = struct.unpack(self.struct_format, data)
                     esp_id = readings[0]
                     self.esp_data[esp_id - 1] = readings
+                    self.last_received[esp_id - 1] = time.time()  # Registrar la hora de recepción
 
                     if self.recording:
                         # Primero verificar si los dispositivos están sincronizados
@@ -887,14 +903,14 @@ class FSR:
             except:
                 pass
 
-    def update_gui(self, label_texts, root):
+    def update_gui(self, label_texts, root, record_button):
         try:
             if root.winfo_exists():
                 # Llama a display_data para actualizar la interfaz
-                self.display_data(self.esp_data, label_texts)
+                self.display_data(self.esp_data, label_texts, record_button)
                 # Programa la próxima actualización sin necesidad de while True
                 #root.after(1, lambda: self.update_gui(label_texts, root))
-                root.after(10, self.update_gui, label_texts, root)
+                root.after(10, self.update_gui, label_texts, root, record_button)
             else:
                 root.quit()  # Cierra la aplicación correctamente
         except Exception as e:
