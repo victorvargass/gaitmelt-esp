@@ -190,7 +190,6 @@ class VibracionContinua:
                             # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
                             continue
             except:
-                print("Error de conexión")
                 self.setup_socket(self.local_udp_ip, self.shared_port)
 
     def update_gui(self, label_texts, root):
@@ -805,7 +804,6 @@ class FSR:
                 self.recorded_data.append(record_entry)
             else:
                 oldest_index = tss.index(min_ts)
-                print(f"Hay problemas con la ESP {esp_id}", oldest_index, tss, min_ts, max_ts )
                 self.buffers[oldest_index].pop(0)
 
     def display_data(self, data, label_texts):
@@ -870,7 +868,6 @@ class FSR:
                             # Si no están sincronizados, esperamos un poco antes de intentar de nuevo
                             continue
             except:
-                print("Error de conexión")
                 self.setup_socket(self.local_udp_ip, self.shared_port)
 
     def update_gui(self, label_texts, root):
@@ -882,7 +879,6 @@ class FSR:
                 #root.after(1, lambda: self.update_gui(label_texts, root))
                 root.after(10, self.update_gui, label_texts, root)
             else:
-                print("El objeto root ya no existe. Cerrando la aplicación.")
                 root.quit()  # Cierra la aplicación correctamente
         except Exception as e:
             print(f"Se produjo un error: {e}")
@@ -1081,7 +1077,6 @@ class FSR:
         try:
             df = pd.read_csv(self.output_folder + "/" + self.output_filename + "/" +  csv_filename, sep=",")
         except FileNotFoundError:
-            print("Error: Archivo no encontrado.")
             return
 
         fig, axs = plt.subplots(

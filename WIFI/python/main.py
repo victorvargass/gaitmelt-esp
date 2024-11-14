@@ -13,7 +13,7 @@ try:
     else:
         pass
 except subprocess.CalledProcessError:
-    print("No se pudo obtener el PID o no hay proceso asociado al puerto.")
+    pass
 
 # Variable global para el proceso en ejecución
 current_process = None
