@@ -39,7 +39,8 @@ def exit_app():
 
 # Configuración de la ventana principal
 root = tk.Tk()
-root.overrideredirect(True)  # Elimina los bordes y botones estándar
+root.protocol("WM_DELETE_WINDOW", lambda: None)
+root.resizable(False, False)
 root.title("Selecciona una opción")
 root.configure(bg="white")
 window_width, window_height = 1200, 600
