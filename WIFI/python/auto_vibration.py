@@ -157,7 +157,7 @@ root.option_add("*Font", "Helvetica 20")
 
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-window_width = int(screen_width * 0.4)
+window_width = int(screen_width * 0.5)
 window_height = int(screen_height)
 x = (screen_width - window_width) // 2
 y = (screen_height - window_height) // 2

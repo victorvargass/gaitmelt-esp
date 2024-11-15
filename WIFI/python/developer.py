@@ -223,10 +223,14 @@ root.protocol("WM_DELETE_WINDOW", lambda: None)
 root.title("Modo Desarrollador")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
+
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-root.state('zoomed')
-root.geometry(f"{screen_width}x{screen_height}+0+0")
+window_width = int(screen_width * 0.9)
+window_height = int(screen_height)
+x = (screen_width - window_width) // 2
+y = (screen_height - window_height) // 2
+root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
 # Crear la pestaña de FSR
 app = tk.Frame(root)
