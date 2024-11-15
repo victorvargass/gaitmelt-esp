@@ -176,10 +176,13 @@ def create_developer_tab(parent, root):
         to=10000,
         orient="horizontal",
         length=200,
-        bg="white",
-        command=lambda value: developer.update_vd(vd_slider.get()),
+        bg="white"
     )
     vd_slider.set(developer.vd)
+    vd_slider.bind(
+        "<ButtonRelease-1>",
+        lambda event: developer.update_vd(vd_slider.get())
+    )
     vd_slider.grid(row=start_row + 3, column=0, columnspan=1)
 
 
@@ -194,10 +197,13 @@ def create_developer_tab(parent, root):
         to=4095,
         orient="horizontal",
         length=200,
-        bg="white",
-        command=lambda value: developer.update_thy(thy_slider.get()),
+        bg="white"
     )
     thy_slider.set(developer.thy)
+    thy_slider.bind(
+        "<ButtonRelease-1>",
+        lambda event: developer.update_thy(thy_slider.get())
+    )
     thy_slider.grid(row=start_row + 5, column=0, columnspan=1)
 
     # Slider para acc_y_threshold (ThY)
@@ -211,10 +217,13 @@ def create_developer_tab(parent, root):
         to=2000,
         orient="horizontal",
         length=200,
-        bg="white",
-        command=lambda value: developer.update_vibration_offset(delay_slider.get()),
+        bg="white"
     )
     delay_slider.set(developer.vibration_offset)
+    delay_slider.bind(
+        "<ButtonRelease-1>",
+        lambda event: developer.update_vibration_offset(delay_slider.get())
+    )
     delay_slider.grid(row=start_row + 7, column=0, columnspan=1)
 
 # Crear la nueva ventana
