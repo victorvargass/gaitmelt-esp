@@ -629,9 +629,6 @@ class AutomaticVibration:
         self.last_vibration_ts = [
             0 for _ in range(2)
         ]  # TS de la última vibración
-        self.min_duration_between_heels = (
-            min_duration_between_heels  # Duracion minima entre talones
-        )
         self.vibrating = [False for _ in range(2)]
         self.fsr = [False for _ in range(2)]
         self.last_vibration_esp = -1
