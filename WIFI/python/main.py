@@ -83,9 +83,9 @@ button_vibracion_continua = tk.Button(
     button_frame, 
     text="Vibración manual", 
     font=("Helvetica", 20),
-    bg="#4CAF50", 
-    fg="white", 
-    width=20, 
+    bg="#FFCB3B",
+    fg="black",
+    width=20,
     height=2,
     command=lambda: run_script("manual_vibration.py")  # Usar lambda para evitar ejecución inmediata
 )
@@ -94,9 +94,9 @@ button_fsr = tk.Button(
     button_frame, 
     text="Vibración automática", 
     font=("Helvetica", 20),
-    bg="#008CBA", 
-    fg="white", 
-    width=20, 
+    bg="#FFCB3B",
+    fg="black",
+    width=20,
     height=2,
     command=lambda: run_script("auto_vibration.py")  # Usar lambda para evitar ejecución inmediata
 )
@@ -105,9 +105,9 @@ button_fsr_avanzado = tk.Button(
     button_frame, 
     text="Modo desarrollador", 
     font=("Helvetica", 20),
-    bg="#008CBA", 
-    fg="white", 
-    width=20, 
+    bg="#FFCB3B",
+    fg="black",
+    width=20,
     height=2,
     command=lambda: run_script("developer.py")  # Usar lambda para evitar ejecución inmediata
 )
@@ -125,9 +125,7 @@ exit_button_frame.pack(side="bottom", pady=20)
 button_exit = tk.Button(
     exit_button_frame, 
     text="Salir", 
-    font=("Helvetica", 24),
-    bg="red", 
-    fg="white", 
+    font=("Helvetica", 14),
     width=20, 
     height=2,
     command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"

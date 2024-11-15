@@ -89,56 +89,56 @@ def create_manual_vibration_tab(parent):
     start_row = (vibracion_continua.num_esps + 1) // 2  # Comienza justo después de los paneles
 
     label_output_filename = tk.Label(parent, text="Nombre del archivo", bg="white")
-    label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=(20, 0))
+    label_output_filename.grid(row=start_row + 0, column=0, columnspan=3, pady=(20, 0))
     input_output_filename = tk.Entry(parent, width=50)
-    input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=(20, 0))
+    input_output_filename.grid(row=start_row + 1, column=0, columnspan=3, pady=(20, 0))
     input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
     input_output_filename.bind('<KeyRelease>', vibracion_continua.update_output_filename)
 
+    init_recording_label = tk.Label(parent, text="Iniciar registro:", bg="white")
+    init_recording_label.grid(row=start_row + 3, column=0, columnspan=2, pady=(40, 0))
+
     canvas = tk.Canvas(parent, width=20, height=20, bg="white")
-    canvas.grid(row=start_row + 4, column=1, padx=0)
+    canvas.grid(row=start_row + 4, column=1, padx=(0, 200), pady=(80, 0))
     
     circle = canvas.create_oval(2, 2, 18, 18, fill="white")
     canvas.itemconfig(circle, state="hidden")  # Ocultar el círculo
 
     record_with_vibration_button = tk.Button(
         parent,
-        text="Iniciar registro con vibración",
+        text="Con vibración",
         command=lambda: vibracion_continua.toggle_recording(record_with_vibration_button, record_without_vibration_button, True, back_button, exit_button, canvas, circle, root),
         bg="green",
         fg="white",
     )
-    record_with_vibration_button.grid(row=start_row + 4, column=0, columnspan=2, pady=(20, 0))
+    record_with_vibration_button.grid(row=start_row + 4, column=0, columnspan=2, pady=(5, 0))
 
     record_without_vibration_button = tk.Button(
         parent,
-        text="Iniciar registro sin vibración",
+        text="Sin vibración",
         command=lambda: vibracion_continua.toggle_recording(record_without_vibration_button, record_with_vibration_button, False, back_button, exit_button, canvas, circle, root),
         bg="green",
         fg="white",
     )
-    record_without_vibration_button.grid(row=start_row + 5, column=0, columnspan=2, pady=(20, 0))
+    record_without_vibration_button.grid(row=start_row + 5, column=0, columnspan=2, pady=(5, 40))
 
     # Botón "Volver" para regresar a la ventana principal de selección
     back_button = tk.Button(
         parent,
         text="Volver al menú principal",
         command=lambda: back_to_main(),
-        bg="red",
-        fg="white",
         font=("Helvetica", 18),
     )
-    back_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
+    back_button.grid(row=start_row + 7, column=0, columnspan=2, pady=(40, 0))
 
     exit_button = tk.Button(
         parent, 
         text="Salir", 
         font=("Helvetica", 18),
-        bg="red", 
-        fg="white",
+        
         command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
     )
-    exit_button.grid(row=start_row + 7, column=0, columnspan=2, pady=20)
+    exit_button.grid(row=start_row + 8, column=0, columnspan=2, pady=(10, 40))
 
     # Configurar threads para la recepción de datos y actualización de la GUI
     receive_thread = threading.Thread(target=vibracion_continua.receive_data)

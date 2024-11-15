@@ -102,7 +102,7 @@ def create_automatic_vibration_tab(parent, root):
     label_output_filename = tk.Label(parent, text="Nombre del archivo", bg="white")
     label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=20)
     input_output_filename = tk.Entry(parent, width=50)
-    input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=20)
+    input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=(20, 0))
     input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
     input_output_filename.bind('<KeyRelease>', fsr.update_output_filename)
     
@@ -111,24 +111,20 @@ def create_automatic_vibration_tab(parent, root):
         parent,
         text="Volver al menú principal",
         command=lambda: back_to_main(),
-        bg="red",
-        fg="white",
         font=("Helvetica", 18),
     )
-    back_button.grid(row=start_row + 5, column=0, columnspan=2, pady=20)
+    back_button.grid(row=start_row + 5, column=0, columnspan=2, pady=(40, 0))
 
     exit_button = tk.Button(
         parent, 
         text="Salir", 
         font=("Helvetica", 18),
-        bg="red", 
-        fg="white",
         command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
     )
-    exit_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
+    exit_button.grid(row=start_row + 6, column=0, columnspan=2, pady=(10, 40))
 
     canvas = tk.Canvas(parent, width=20, height=20, bg="white")
-    canvas.grid(row=start_row + 4, column=1, padx=0)
+    canvas.grid(row=start_row + 4, column=1, padx=(0, 200), pady=(50, 0))
     
     circle = canvas.create_oval(2, 2, 18, 18, fill="white")
     canvas.itemconfig(circle, state="hidden")  # Ocultar el círculo
@@ -139,7 +135,7 @@ def create_automatic_vibration_tab(parent, root):
         bg="green",
         fg="white",
     )
-    record_button.grid(row=start_row + 4, column=0, columnspan=3, pady=20)
+    record_button.grid(row=start_row + 4, column=0, columnspan=3, pady=(100, 50))
 
 
     # Configurar threads para la recepción de datos y actualización de la GUI
