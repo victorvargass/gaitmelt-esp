@@ -158,12 +158,13 @@ root.title("Vibración continua")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 
-window_width, window_height = 1000, 1200
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-position_x = (screen_width - window_width) // 2
-position_y = (screen_height - window_height) // 2
-root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+window_width = int(screen_width * 0.4)
+window_height = int(screen_height)
+x = (screen_width - window_width) // 2
+y = (screen_height - window_height) // 2
+root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
 # Crear la pestaña de vibración continua
 app = tk.Frame(root)

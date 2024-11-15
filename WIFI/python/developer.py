@@ -225,7 +225,8 @@ root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-root.geometry(f"{screen_width}x{screen_height}")
+root.state('zoomed')
+root.geometry(f"{screen_width}x{screen_height}+0+0")
 
 # Crear la pestaña de FSR
 app = tk.Frame(root)
