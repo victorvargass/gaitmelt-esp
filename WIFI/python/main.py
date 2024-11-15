@@ -87,36 +87,36 @@ button_vibracion_continua = tk.Button(
     fg="white", 
     width=20, 
     height=2,
-    command=lambda: run_script("vibracion_continua.py")  # Usar lambda para evitar ejecución inmediata
+    command=lambda: run_script("manual_vibration.py")  # Usar lambda para evitar ejecución inmediata
 )
 
 button_fsr = tk.Button(
     button_frame, 
-    text="Vibración con detección", 
+    text="Vibración automática", 
     font=("Helvetica", 20),
     bg="#008CBA", 
     fg="white", 
     width=20, 
     height=2,
-    command=lambda: run_script("fsr.py")  # Usar lambda para evitar ejecución inmediata
+    command=lambda: run_script("auto_vibration.py")  # Usar lambda para evitar ejecución inmediata
 )
 
 button_fsr_avanzado = tk.Button(
     button_frame, 
-    text="Vibración con detección avanzada", 
+    text="Modo desarrollador", 
     font=("Helvetica", 20),
     bg="#008CBA", 
     fg="white", 
     width=20, 
     height=2,
-    command=lambda: run_script("fsr_avanzada.py")  # Usar lambda para evitar ejecución inmediata
+    command=lambda: run_script("developer.py")  # Usar lambda para evitar ejecución inmediata
 )
 
 # Colocar los botones horizontalmente
 button_vibracion_continua.pack(side="left", padx=20)
 button_fsr.pack(side="left", padx=20)
 button_fsr_avanzado.pack(side="left", padx=20)
-button_fsr_avanzado.config(state="disabled")
+#button_fsr_avanzado.config(state="disabled")
 
 # Crear y posicionar el botón "Exit" en un frame inferior
 exit_button_frame = tk.Frame(root, bg="white")

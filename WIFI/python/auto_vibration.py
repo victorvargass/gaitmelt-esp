@@ -1,6 +1,6 @@
 import tkinter as tk
 import threading
-from utils import FSR  # Asegúrate de que esta importación sea correcta
+from utils import AutomaticVibration  # Asegúrate de que esta importación sea correcta
 import subprocess
 
 # Configuración de los ESPs
@@ -21,27 +21,21 @@ READING_MODE = True
 
 THY = 1000
 VD = 250  # 500 vibration duration
-TIME_BETWEEN_VIBRATIONS = 0.8  # quiza modificar
-TIME_BETWEEN_HEEL_DETECTION = None
-MIN_DURATION_BETWEEN_HEELS = None
 MOTOR_POWER = 250 # 70
-VIBRATION_OFFSET=None
+VIBRATION_OFFSET=0
 
 
 # Crear una instancia de FSR
-fsr = FSR(
+fsr = AutomaticVibration(
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
     esp_ips=ESP_IPS,
     struct_format=STRUCT_FORMAT,
     output_folder=OUTPUT_FOLDER,
     output_filename=OUTPUT_FILENAME,
-    time_between_vibrations=TIME_BETWEEN_VIBRATIONS,
-    time_between_heel_detection=TIME_BETWEEN_HEEL_DETECTION,
     thy=THY,
     vd=VD,
     motor_power=MOTOR_POWER,
-    min_duration_between_heels=MIN_DURATION_BETWEEN_HEELS,
     vibration_offset=VIBRATION_OFFSET,
     reading_mode=READING_MODE
 )
@@ -54,7 +48,7 @@ def back_to_main():
 def exit_app():
     root.quit()  # Cerrar la aplicación
 
-def create_fsr_tab(parent, root):
+def create_automatic_vibration_tab(parent, root):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
     
     # Configuración de ESPs
@@ -105,7 +99,7 @@ def create_fsr_tab(parent, root):
     # Ordenar los controles adicionales en una columna debajo de los paneles
     start_row = (fsr.num_esps + 1) // 2    
     
-    label_output_filename = tk.Label(parent, text="Nombre del archivo")
+    label_output_filename = tk.Label(parent, text="Nombre del archivo", bg="white")
     label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=20)
     input_output_filename = tk.Entry(parent, width=50)
     input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=20)
@@ -133,7 +127,7 @@ def create_fsr_tab(parent, root):
     )
     exit_button.grid(row=start_row + 6, column=0, columnspan=2, pady=20)
 
-    canvas = tk.Canvas(parent, width=20, height=20)
+    canvas = tk.Canvas(parent, width=20, height=20, bg="white")
     canvas.grid(row=start_row + 4, column=1, padx=0)
     
     circle = canvas.create_oval(2, 2, 18, 18, fill="white")
@@ -161,7 +155,7 @@ def create_fsr_tab(parent, root):
 # Crear la nueva ventana
 root = tk.Tk()
 root.protocol("WM_DELETE_WINDOW", lambda: None)
-root.title("FSR")
+root.title("Vibración automática")
 root.configure(bg="white")
 root.option_add("*Font", "Helvetica 20")
 
@@ -174,6 +168,7 @@ root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
 
 # Crear la pestaña de FSR
 app = tk.Frame(root)
-create_fsr_tab(app, root)
+app.configure(bg="white")
+create_automatic_vibration_tab(app, root)
 app.pack(fill="both", expand=True)
 root.mainloop()

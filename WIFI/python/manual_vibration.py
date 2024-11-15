@@ -1,7 +1,6 @@
 import tkinter as tk
-import os
 import threading
-from utils import VibracionContinua  # Asegúrate de que esta importación sea correcta
+from utils import ManualVibration  # Asegúrate de que esta importación sea correcta
 import subprocess
 
 # Configuración de los ESPs
@@ -21,7 +20,7 @@ OUTPUT_FOLDER = "output_data/vibracion_continua/"
 MOTOR_POWER = 250
 
 # Crear una instancia de VibractionContinua
-vibracion_continua = VibracionContinua(
+vibracion_continua = ManualVibration(
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
     esp_ips=ESP_IPS,
@@ -39,7 +38,7 @@ def back_to_main():
 def exit_app():
     root.quit()  # Cerrar la aplicación
 
-def create_vibraction_continua_tab(parent):
+def create_manual_vibration_tab(parent):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
     
     # Configuración de ESPs
@@ -89,14 +88,14 @@ def create_vibraction_continua_tab(parent):
     # Ordenar los controles adicionales en una columna debajo de los paneles
     start_row = (vibracion_continua.num_esps + 1) // 2  # Comienza justo después de los paneles
 
-    label_output_filename = tk.Label(parent, text="Nombre del archivo")
+    label_output_filename = tk.Label(parent, text="Nombre del archivo", bg="white")
     label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=(20, 0))
     input_output_filename = tk.Entry(parent, width=50)
     input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=(20, 0))
     input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
     input_output_filename.bind('<KeyRelease>', vibracion_continua.update_output_filename)
 
-    canvas = tk.Canvas(parent, width=20, height=20)
+    canvas = tk.Canvas(parent, width=20, height=20, bg="white")
     canvas.grid(row=start_row + 4, column=1, padx=0)
     
     circle = canvas.create_oval(2, 2, 18, 18, fill="white")
@@ -168,6 +167,7 @@ root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
 
 # Crear la pestaña de vibración continua
 app = tk.Frame(root)
-create_vibraction_continua_tab(app)
+app.configure(bg="white")
+create_manual_vibration_tab(app)
 app.pack(fill="both", expand=True)
 root.mainloop()

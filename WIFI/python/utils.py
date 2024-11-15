@@ -13,7 +13,7 @@ import numpy as np
 from datetime import datetime
 import tkinter as tk
 
-class VibracionContinua:
+class ManualVibration:
     def __init__(
         self,
         local_udp_ip,
@@ -586,7 +586,7 @@ class VibracionContinua:
 
 
 
-class FSR:
+class AutomaticVibration:
     def __init__(
         self,
         local_udp_ip,
