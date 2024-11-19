@@ -233,9 +233,9 @@ class ManualVibration:
         self.plot_acc_data(final_csv_filename)
         os.remove(self.output_folder + "/" + self.output_filename + "/" + "recorded_data.csv")
         if vibration:
-            button_text = "Iniciar registro con vibración"
+            button_text = "Con vibración"
         else:
-            button_text = "Iniciar registro sin vibración"
+            button_text = "Sin vibración"
         record_button.config(text=button_text, bg="green", fg="white")
 
     def init_recording(self, record_button):
@@ -1244,7 +1244,7 @@ class AutomaticVibration:
         c.drawString(50, 720, "Reporte Gaitmelt")
         
         # Logo en la parte superior derecha
-        logo_path = "leufulab.png"  # Cambia esto por la ruta de tu logo
+        logo_path = "src/leufulab.png"  # Cambia esto por la ruta de tu logo
         c.drawImage(logo_path, 500, 730, width=100, height=70)
         
         # Datos
@@ -1989,7 +1989,7 @@ class Developer:
         c.drawString(50, 720, "Reporte Gaitmelt")
         
         # Logo en la parte superior derecha
-        logo_path = "leufulab.png"  # Cambia esto por la ruta de tu logo
+        logo_path = "src/leufulab.png"  # Cambia esto por la ruta de tu logo
         c.drawImage(logo_path, 500, 730, width=100, height=70)
         
         # Datos
