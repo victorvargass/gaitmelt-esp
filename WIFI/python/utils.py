@@ -152,8 +152,9 @@ class ManualVibration:
         all_active = self.all_devices_active(current_time)
         
         record_state = "normal" if all_active else "disabled"
-        record_with_vibration_button.config(state=record_state)
-        record_without_vibration_button.config(state=record_state)
+        if not self.recording:
+            record_with_vibration_button.config(state=record_state)
+            record_without_vibration_button.config(state=record_state)
 
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is None or \
@@ -826,7 +827,8 @@ class AutomaticVibration:
         all_active = self.all_devices_active(current_time)
         
         record_state = "normal" if all_active else "disabled"
-        record_button.config(state=record_state)
+        if not self.recording:
+            record_button.config(state=record_state)
         
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is None or \
@@ -1569,9 +1571,9 @@ class Developer:
     def display_data(self, data, label_texts, record_button):
         current_time = time.time()
         all_active = self.all_devices_active(current_time)
-        
         record_state = "normal" if all_active else "disabled"
-        record_button.config(state=record_state)
+        if not self.recording:
+            record_button.config(state=record_state)
         
         for esp_id in self.esp_indexes:
             if data[esp_id - 1] is None or \
