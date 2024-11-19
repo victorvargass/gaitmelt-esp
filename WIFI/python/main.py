@@ -57,15 +57,15 @@ logo = tk.PhotoImage(file="src/leufulab.png")
 logo = logo.subsample(10, 10)
 
 model = tk.PhotoImage(file="src/model.png")
-model = model.subsample(3, 3)
+model = model.subsample(18, 18)
 
 # Crear un Frame para el texto y los botones
 main_frame = tk.Frame(root, bg="white")
 main_frame.pack(expand=True)
 
 # Colocar la imagen arriba de todo
-model_label = tk.Label(main_frame, image=model, bg="white")
-model_label.place(x=-30, y=0)
+model_label = tk.Label(main_frame, image=model, borderwidth=0, highlightthickness=0)
+model_label.place(x=25, y=40)
 
 logo_label = tk.Label(main_frame, image=logo, bg="white")
 logo_label.pack(pady=20)
