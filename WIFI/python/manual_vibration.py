@@ -30,6 +30,9 @@ vibracion_continua = ManualVibration(
     motor_power=MOTOR_POWER,
 )
 
+font_name = "Helvetica"
+font_size = "12"
+
 def back_to_main():
     subprocess.Popen(['python', 'main.py'])  # Abrir main.py
     root.destroy()  # Cerrar vibracion.py
@@ -75,7 +78,7 @@ def create_manual_vibration_tab(parent):
             command=lambda i=i: vibracion_continua.activate_selected_motors([i+1]),
             bg="green",
             fg="white",
-            font=("Helvetica", 12),
+            font=(font_name, font_size),
         )
         button.pack(pady=(5, 10))
         '''
@@ -127,14 +130,14 @@ def create_manual_vibration_tab(parent):
         parent,
         text="Volver al menú principal",
         command=lambda: back_to_main(),
-        font=("Helvetica", 18),
+        font=(font_name, font_size),
     )
     back_button.grid(row=start_row + 7, column=0, columnspan=2, pady=(40, 0))
 
     exit_button = tk.Button(
         parent, 
         text="Salir", 
-        font=("Helvetica", 18),
+        font=(font_name, font_size),
         
         command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
     )
@@ -156,7 +159,7 @@ root = tk.Tk()
 root.protocol("WM_DELETE_WINDOW", lambda: None)
 root.title("Vibración continua")
 root.configure(bg="white")
-root.option_add("*Font", "Helvetica 20")
+root.option_add("*Font", f"{font_name} {font_size}")
 
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()

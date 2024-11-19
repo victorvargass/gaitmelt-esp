@@ -40,6 +40,9 @@ automatic_vibration = AutomaticVibration(
     reading_mode=READING_MODE
 )
 
+font_name = "Helvetica"
+font_size = "14"
+
 def back_to_main():
     subprocess.Popen(['python', 'main.py'])  # Abrir main.py
     root.destroy()  # Cerrar vibracion.py
@@ -86,7 +89,7 @@ def create_automatic_vibration_tab(parent, root):
             command=lambda i=i: automatic_vibration.activate_selected_motors([i+1]),
             bg="green",
             fg="white",
-            font=("Helvetica", 12),
+            font=(font_name, font_size),
         )
         button.pack(pady=(5, 10))
         '''
@@ -111,14 +114,14 @@ def create_automatic_vibration_tab(parent, root):
         parent,
         text="Volver al menú principal",
         command=lambda: back_to_main(),
-        font=("Helvetica", 18),
+        font=(font_name, font_size),
     )
     back_button.grid(row=start_row + 5, column=0, columnspan=2, pady=(40, 0))
 
     exit_button = tk.Button(
         parent, 
         text="Salir", 
-        font=("Helvetica", 18),
+        font=(font_name, font_size),
         command=exit_app  # Llamar a la función exit_app al hacer clic en "Exit"
     )
     exit_button.grid(row=start_row + 6, column=0, columnspan=2, pady=(10, 40))
@@ -153,7 +156,7 @@ root = tk.Tk()
 root.protocol("WM_DELETE_WINDOW", lambda: None)
 root.title("Vibración automática")
 root.configure(bg="white")
-root.option_add("*Font", "Helvetica 20")
+root.option_add("*Font", f"{font_name} {font_size}")
 
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
