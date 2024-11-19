@@ -19,7 +19,7 @@ OUTPUT_FOLDER = "output_data/fsr/"
 
 READING_MODE = True
 
-THY = 1000
+THY = 1500
 VD = 250  # 500 vibration duration
 MOTOR_POWER = 250 # 70
 VIBRATION_OFFSET=0
