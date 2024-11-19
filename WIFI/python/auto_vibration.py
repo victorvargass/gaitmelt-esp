@@ -15,7 +15,7 @@ LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
 
 OUTPUT_FILENAME = "Paciente 0X"
-OUTPUT_FOLDER = "output_data/fsr/"
+OUTPUT_FOLDER = "output_data/vibracion_automatica/"
 
 READING_MODE = True
 
@@ -25,8 +25,8 @@ MOTOR_POWER = 250 # 70
 VIBRATION_OFFSET=0
 
 
-# Crear una instancia de FSR
-fsr = AutomaticVibration(
+# Crear una instancia de AutomaticVibration
+automatic_vibration = AutomaticVibration(
     local_udp_ip=LOCAL_UDP_IP,
     shared_port=SHARED_UDP_PORT,
     esp_ips=ESP_IPS,
@@ -52,14 +52,14 @@ def create_automatic_vibration_tab(parent, root):
     """Crea el contenido de la pestaña 1 con la interfaz de control y visualización de ESPs."""
     
     # Configuración de ESPs
-    label_texts = [tk.StringVar() for _ in range(fsr.num_esps)]
+    label_texts = [tk.StringVar() for _ in range(automatic_vibration.num_esps)]
     for i, text in enumerate(label_texts):
         text.set(f"Board {i+1} no conectada")
 
     # Configurar la cuadrícula para que sea flexible
     for i in range(2):
         parent.grid_columnconfigure(i, weight=1)
-    for i in range((fsr.num_esps + 1) // 2):
+    for i in range((automatic_vibration.num_esps + 1) // 2):
         parent.grid_rowconfigure(i, weight=1)
 
     new_positions = {
@@ -83,7 +83,7 @@ def create_automatic_vibration_tab(parent, root):
         button = tk.Button(
             frame,
             text=f"Activar vibrador",
-            command=lambda i=i: fsr.activate_selected_motors([i+1]),
+            command=lambda i=i: automatic_vibration.activate_selected_motors([i+1]),
             bg="green",
             fg="white",
             font=("Helvetica", 12),
@@ -97,14 +97,14 @@ def create_automatic_vibration_tab(parent, root):
         frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
     # Ordenar los controles adicionales en una columna debajo de los paneles
-    start_row = (fsr.num_esps + 1) // 2    
+    start_row = (automatic_vibration.num_esps + 1) // 2    
     
     label_output_filename = tk.Label(parent, text="Nombre del archivo", bg="white")
     label_output_filename.grid(row=start_row + 2, column=0, columnspan=3, pady=20)
     input_output_filename = tk.Entry(parent, width=50)
     input_output_filename.grid(row=start_row + 3, column=0, columnspan=3, pady=(20, 0))
     input_output_filename.insert(0, OUTPUT_FILENAME)  # Establecer el valor por defecto
-    input_output_filename.bind('<KeyRelease>', fsr.update_output_filename)
+    input_output_filename.bind('<KeyRelease>', automatic_vibration.update_output_filename)
     
     # Botón "Volver" para regresar a la ventana principal de selección
     back_button = tk.Button(
@@ -131,7 +131,7 @@ def create_automatic_vibration_tab(parent, root):
     record_button = tk.Button(
         parent,
         text="Iniciar registro",
-        command=lambda: fsr.toggle_recording(record_button, back_button, exit_button, canvas, circle, root, panels),
+        command=lambda: automatic_vibration.toggle_recording(record_button, back_button, exit_button, canvas, circle, root, panels),
         bg="green",
         fg="white",
     )
@@ -139,11 +139,11 @@ def create_automatic_vibration_tab(parent, root):
 
 
     # Configurar threads para la recepción de datos y actualización de la GUI
-    receive_thread = threading.Thread(target=fsr.receive_data, args=(panels, ))
+    receive_thread = threading.Thread(target=automatic_vibration.receive_data, args=(panels, ))
     receive_thread.daemon = True
     receive_thread.start()
 
-    update_thread = threading.Thread(target=fsr.update_gui, args=(label_texts, root, record_button))
+    update_thread = threading.Thread(target=automatic_vibration.update_gui, args=(label_texts, root, record_button))
 
     update_thread.daemon = True
     update_thread.start()
@@ -163,7 +163,7 @@ x = (screen_width - window_width) // 2
 y = (screen_height - window_height) // 2
 root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-# Crear la pestaña de FSR
+# Crear la pestaña de AutomaticVibration
 app = tk.Frame(root)
 app.configure(bg="white")
 create_automatic_vibration_tab(app, root)
