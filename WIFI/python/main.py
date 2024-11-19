@@ -1,6 +1,7 @@
 import tkinter as tk
 import subprocess
 import os
+import platform
 
 LOCAL_UDP_IP = "192.168.50.82"
 SHARED_UDP_PORT = 4210
@@ -17,6 +18,99 @@ except subprocess.CalledProcessError:
 
 # Variable global para el proceso en ejecución
 current_process = None
+
+def get_current_wifi():
+    # Detectar el sistema operativo
+    os_type = platform.system()
+
+    if os_type == "Linux":
+        # Usar iwgetid en Linux
+        try:
+            current_network = subprocess.check_output(
+                ["iwgetid", "-r"], text=True
+            ).strip()
+            return current_network if current_network else None
+        except subprocess.CalledProcessError:
+            return None
+
+    elif os_type == "Windows":
+        # Usar netsh en Windows
+        try:
+            # Ejecutar el comando netsh para obtener información sobre la red WiFi
+            current_network = subprocess.check_output(
+                ["netsh", "wlan", "show", "interfaces"], text=True
+            )
+            # Buscar la línea que contiene el SSID de la red
+            for line in current_network.splitlines():
+                if "SSID" in line:
+                    # Extraer y devolver el nombre de la red WiFi
+                    return line.split(":")[1].strip()
+            return None
+        except subprocess.CalledProcessError:
+            return None
+    return None
+
+def show_custom_error():
+    # Crear la ventana de error
+    error_window = tk.Tk()
+    error_window.title("Error de Red")
+    
+    # Tamaño de la ventana de error
+    window_width = 600
+    window_height = 300
+
+    # Obtener el tamaño de la pantalla
+    screen_width = error_window.winfo_screenwidth()
+    screen_height = error_window.winfo_screenheight()
+
+    # Calcular las coordenadas para centrar la ventana
+    position_top = int(screen_height / 2 - window_height / 2)
+    position_left = int(screen_width / 2 - window_width / 2)
+
+    # Establecer la geometría de la ventana en el centro
+    error_window.geometry(f"{window_width}x{window_height}+{position_left}+{position_top}")
+    
+    error_window.configure(bg="white")
+    
+    # Mensaje de error
+    label = tk.Label(
+        error_window,
+        text="Error de Conexión",
+        font=("Helvetica", 24, "bold"),
+        fg="red",
+        bg="white"
+    )
+    label.pack(pady=20)
+    
+    message = tk.Label(
+        error_window,
+        text="Por favor, conéctate a la red WiFi 'Gaitmelt' y vuelve a intentarlo.",
+        font=("Helvetica", 20),
+        bg="white",
+        wraplength=500,  # Ajustar texto al ancho de la ventana
+        justify="center"
+    )
+    message.pack(pady=20)
+    
+    # Botón para cerrar la ventana
+    close_button = tk.Button(
+        error_window,
+        text="Cerrar",
+        font=("Helvetica", 16),
+        bg="#FF5C5C",
+        fg="white",
+        command=error_window.destroy
+    )
+    close_button.pack(pady=20)
+    
+    # Ejecutar la ventana
+    error_window.mainloop()
+
+# Verificar si estamos conectados a "Gaitmelt"
+current_wifi = get_current_wifi()
+if current_wifi != "Gaitmelt":
+    show_custom_error()
+    exit()
 
 # Función para ejecutar un script y cerrar el actual
 def run_script(script_name):
