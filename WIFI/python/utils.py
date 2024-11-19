@@ -13,6 +13,9 @@ import numpy as np
 from datetime import datetime
 import tkinter as tk
 
+font_name = "Helvetica"
+font_size = 12
+
 class ManualVibration:
     def __init__(
         self,
@@ -278,12 +281,12 @@ class ManualVibration:
         
         # Crear un label (etiqueta) para el mensaje inicial
         message1 = "El registro ha finalizado con éxito.\nLos archivos han quedado guardados en:"
-        label1 = tk.Label(window, text=message1, font=("Segoe UI", 20), padx=20, pady=20, justify="center")
+        label1 = tk.Label(window, text=message1, font=(font_name, font_size), padx=20, pady=20, justify="center")
         label1.pack(expand=True)
 
         # Crear un label (etiqueta) para la ruta en negrita
         message2 = f"{self.output_folder}{self.output_filename}/"
-        label2 = tk.Label(window, text=message2, font=("Segoe UI", 20, "bold"), padx=20, pady=10, justify="center")
+        label2 = tk.Label(window, text=message2, font=(font_name, font_size, "bold"), padx=20, pady=10, justify="center")
         label2.pack(expand=True)
 
         # Botón para cerrar la ventana
@@ -291,7 +294,7 @@ class ManualVibration:
             window, 
             text="Continuar", 
             command=lambda: self.close_dialog_and_reopen(window, root), 
-            font=("Arial", 12),
+            font=(font_name, font_size),
             bg="green", 
             fg="white",
         )
@@ -302,7 +305,7 @@ class ManualVibration:
             window, 
             text="Salir", 
             command=lambda: self.exit_app(root), 
-            font=("Arial", 12),
+            font=(font_name, font_size),
             bg="red", 
             fg="white",
         )
@@ -966,12 +969,12 @@ class AutomaticVibration:
         
         # Crear un label (etiqueta) para el mensaje inicial
         message1 = "El registro ha finalizado con éxito.\nLos archivos han quedado guardados en:"
-        label1 = tk.Label(window, text=message1, font=("Segoe UI", 20), padx=20, pady=20, justify="center")
+        label1 = tk.Label(window, text=message1, font=(font_name, font_size), padx=20, pady=20, justify="center")
         label1.pack(expand=True)
 
         # Crear un label (etiqueta) para la ruta en negrita
         message2 = f"{self.output_folder}{self.output_filename}/"
-        label2 = tk.Label(window, text=message2, font=("Segoe UI", 20, "bold"), padx=20, pady=10, justify="center")
+        label2 = tk.Label(window, text=message2, font=(font_name, font_size, "bold"), padx=20, pady=10, justify="center")
         label2.pack(expand=True)
 
         # Botón para cerrar la ventana
@@ -979,7 +982,7 @@ class AutomaticVibration:
             window, 
             text="Continuar", 
             command=lambda: self.close_dialog_and_reopen(window, root), 
-            font=("Arial", 12),
+            font=(font_name, font_size),
             bg="green", 
             fg="white",
         )
@@ -990,7 +993,7 @@ class AutomaticVibration:
             window, 
             text="Salir", 
             command=lambda: self.exit_app(root), 
-            font=("Arial", 12),
+            font=(font_name, font_size),
             bg="red", 
             fg="white",
         )
@@ -1249,7 +1252,7 @@ class AutomaticVibration:
         c.drawImage(logo_path, 500, 730, width=100, height=70)
         
         # Datos
-        c.setFont("Helvetica", 12)
+        c.setFont(font_name, font_size)
 
         current_date = datetime.now().strftime("%d-%m-%Y")
 
@@ -1297,7 +1300,7 @@ class AutomaticVibration:
             if total_cadence:
                 general_cadence = np.mean(total_cadence)
 
-        c.setFont("Helvetica", 12)
+        c.setFont(font_name, font_size)
         # Dibujar los textos en el documento con separaciones de 40 puntos entre secciones
         c.drawString(50, height - 80, f"Paciente: {self.output_filename}")
         c.drawString(50, height - 100, f"Fecha: {current_date}")
@@ -1711,12 +1714,12 @@ class Developer:
         
         # Crear un label (etiqueta) para el mensaje inicial
         message1 = "El registro ha finalizado con éxito.\nLos archivos han quedado guardados en:"
-        label1 = tk.Label(window, text=message1, font=("Segoe UI", 20), padx=20, pady=20, justify="center")
+        label1 = tk.Label(window, text=message1, font=(font_name, font_size), padx=20, pady=20, justify="center")
         label1.pack(expand=True)
 
         # Crear un label (etiqueta) para la ruta en negrita
         message2 = f"{self.output_folder}{self.output_filename}/"
-        label2 = tk.Label(window, text=message2, font=("Segoe UI", 20, "bold"), padx=20, pady=10, justify="center")
+        label2 = tk.Label(window, text=message2, font=(font_name, font_size, "bold"), padx=20, pady=10, justify="center")
         label2.pack(expand=True)
 
         # Botón para cerrar la ventana
@@ -1724,7 +1727,7 @@ class Developer:
             window, 
             text="Continuar", 
             command=lambda: self.close_dialog_and_reopen(window, root), 
-            font=("Arial", 12),
+            font=(font_name, font_size),
             bg="green", 
             fg="white",
         )
@@ -1735,7 +1738,7 @@ class Developer:
             window, 
             text="Salir", 
             command=lambda: self.exit_app(root), 
-            font=("Arial", 12),
+            font=(font_name, font_size),
             bg="red", 
             fg="white",
         )
@@ -1994,7 +1997,7 @@ class Developer:
         c.drawImage(logo_path, 500, 730, width=100, height=70)
         
         # Datos
-        c.setFont("Helvetica", 12)
+        c.setFont(font_name, font_size)
 
         current_date = datetime.now().strftime("%d-%m-%Y")
 
@@ -2042,7 +2045,7 @@ class Developer:
             if total_cadence:
                 general_cadence = np.mean(total_cadence)
 
-        c.setFont("Helvetica", 12)
+        c.setFont(font_name, font_size)
         # Dibujar los textos en el documento con separaciones de 40 puntos entre secciones
         c.drawString(50, height - 80, f"Paciente: {self.output_filename}")
         c.drawString(50, height - 100, f"Fecha: {current_date}")
