@@ -321,6 +321,7 @@ class ManualVibration:
 
 
     def toggle_recording(self, record_button, another_record_button, vibration, back_button, exit_button, canvas, circle, root):
+        self.set_selected_motors_vibration_time()
         self.sync_devices()
         if self.recording:
             if vibration:
@@ -353,8 +354,6 @@ class ManualVibration:
             print(f"Error sending message {message} to {IP}: {e}")
 
     def sync_devices(self):
-        self.set_selected_motors_motor_power()
-        self.set_selected_motors_vibration_time()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(self.send_esp_message, self.esp_ips[esp], "reset")
